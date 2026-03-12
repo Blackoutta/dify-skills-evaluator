@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dify API Curl"
+  short_description: "Call Dify app APIs with curl"
+  default_prompt: "Use $dify-api-curl to call a Dify app API with curl, choose the right app type, and show a ready-to-run request."

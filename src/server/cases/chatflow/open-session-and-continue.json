@@ -1,0 +1,67 @@
+{
+  "id": "chatflow.open_session_and_continue.v1",
+  "title": "Open a chatflow session and continue the same conversation",
+  "appType": "chatflow",
+  "requiredApps": [
+    {
+      "appAlias": "chatbot",
+      "appType": "chatflow",
+      "purpose": "Primary chatflow app under evaluation"
+    }
+  ],
+  "objective": "The agent should start a new conversation with the chatbot app and then continue the same conversation in a second turn by reusing the returned conversation_id.",
+  "promptForAgent": "Use the available Dify curl-based skill to call the app alias 'chatbot'. First, send a short greeting to start a new conversation. Then send one follow-up question in the same conversation. Do not create a second independent conversation. Use blocking mode.",
+  "maxTurns": 2,
+  "tokenBudget": {
+    "targetTotalTokens": 100000,
+    "maxTotalTokens": 500000
+  },
+  "expectedTrace": {
+    "steps": [
+      {
+        "stepId": "open_conversation",
+        "order": 1,
+        "appAlias": "chatbot",
+        "method": "POST",
+        "path": "/chat-messages",
+        "requestRules": [
+          { "path": "json.response_mode", "rule": "equals", "value": "blocking" },
+          { "path": "json.query", "rule": "non_empty" },
+          { "path": "json.conversation_id", "rule": "empty" },
+          { "path": "json.user", "rule": "non_empty" }
+        ],
+        "responseRules": [
+          { "path": "json.conversation_id", "rule": "non_empty" },
+          { "path": "json.answer", "rule": "non_empty" }
+        ],
+        "responseExtractors": [
+          { "variableName": "conversation_id", "fromPath": "json.conversation_id" }
+        ]
+      },
+      {
+        "stepId": "continue_conversation",
+        "order": 2,
+        "appAlias": "chatbot",
+        "method": "POST",
+        "path": "/chat-messages",
+        "requestRules": [
+          { "path": "json.response_mode", "rule": "equals", "value": "blocking" },
+          { "path": "json.query", "rule": "non_empty" },
+          { "path": "json.conversation_id", "rule": "equals_variable", "variableName": "conversation_id" },
+          { "path": "json.user", "rule": "non_empty" }
+        ],
+        "responseRules": [
+          { "path": "json.conversation_id", "rule": "equals_variable", "variableName": "conversation_id" },
+          { "path": "json.answer", "rule": "non_empty" }
+        ]
+      }
+    ]
+  },
+  "assertions": [
+    { "id": "minimum-two-requests", "description": "The run must contain at least two chat requests to the chatbot app.", "type": "minimum_trace_steps" },
+    { "id": "chatbot-app-used", "description": "The run must call the expected app alias 'chatbot'.", "type": "app_alias_used" },
+    { "id": "all-2xx", "description": "Both chat requests must return a 2xx status code.", "type": "http_status_2xx" },
+    { "id": "field-rules-pass", "description": "All request and response field rules for both steps must pass.", "type": "field_rules_pass" },
+    { "id": "conversation-reused", "description": "The second request must reuse the conversation_id returned by the first response.", "type": "conversation_reused" }
+  ]
+}

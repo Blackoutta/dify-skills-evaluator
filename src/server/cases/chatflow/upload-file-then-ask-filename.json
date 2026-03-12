@@ -1,0 +1,78 @@
+{
+  "id": "chatflow.upload_file_and_ask_filename.v1",
+  "title": "Upload a text file to chatflow and ask what it says",
+  "appType": "chatflow",
+  "requiredApps": [
+    {
+      "appAlias": "chatbot",
+      "appType": "chatflow",
+      "purpose": "Chatflow app that supports document file upload"
+    }
+  ],
+  "objective": "The agent should upload a local text file for the chatbot app, then send a chat message that asks what is written in the attached file and verify the response contains the expected text.",
+  "promptForAgent": "Use the available Dify curl-based skill to call the app alias 'chatbot'. First upload the provided local file artifact 'source_doc'. Then send one blocking chat message that attaches the uploaded file by upload_file_id and asks what is written in the file. Do not instruct the app to repeat a target phrase directly.",
+  "maxTurns": 2,
+  "tokenBudget": {
+    "targetTotalTokens": 100000,
+    "maxTotalTokens": 500000
+  },
+  "artifacts": [
+    {
+      "artifactId": "source_doc",
+      "kind": "file",
+      "path": "fixtures/files/some-file.txt",
+      "mimeType": "text/plain",
+      "displayName": "some-file.txt",
+      "description": "A local text file used to validate upload plus retrieval behavior."
+    }
+  ],
+  "expectedTrace": {
+    "steps": [
+      {
+        "stepId": "upload_source_file",
+        "order": 1,
+        "appAlias": "chatbot",
+        "method": "POST",
+        "path": "/files/upload",
+        "requestRules": [
+          { "path": "multipart.fields.user", "rule": "non_empty" },
+          { "path": "multipart.files[0].filename", "rule": "equals", "value": "some-file.txt" },
+          { "path": "multipart.files[0].mimeType", "rule": "contains", "value": "text/plain" }
+        ],
+        "responseRules": [
+          { "path": "json.id", "rule": "non_empty" },
+          { "path": "json.name", "rule": "equals", "value": "some-file.txt" }
+        ],
+        "responseExtractors": [
+          { "variableName": "uploaded_file_id", "fromPath": "json.id" }
+        ]
+      },
+      {
+        "stepId": "ask_for_file_content",
+        "order": 2,
+        "appAlias": "chatbot",
+        "method": "POST",
+        "path": "/chat-messages",
+        "requestRules": [
+          { "path": "json.response_mode", "rule": "equals", "value": "blocking" },
+          { "path": "json.query", "rule": "contains", "value": "written in the file" },
+          { "path": "json.conversation_id", "rule": "empty" },
+          { "path": "json.user", "rule": "non_empty" },
+          { "path": "json.files[0].type", "rule": "equals", "value": "document" },
+          { "path": "json.files[0].transfer_method", "rule": "equals", "value": "local_file" },
+          { "path": "json.files[0].upload_file_id", "rule": "equals_variable", "variableName": "uploaded_file_id" }
+        ],
+        "responseRules": [
+          { "path": "json.answer", "rule": "contains", "value": "hey, you are awesome!" }
+        ]
+      }
+    ]
+  },
+  "assertions": [
+    { "id": "minimum-two-requests", "description": "The run must contain one upload request and one chat request.", "type": "minimum_trace_steps" },
+    { "id": "chatbot-app-used", "description": "The run must call the expected app alias 'chatbot'.", "type": "app_alias_used" },
+    { "id": "all-2xx", "description": "Both requests must return a 2xx status code.", "type": "http_status_2xx" },
+    { "id": "field-rules-pass", "description": "The upload step and chat step field rules must all pass.", "type": "field_rules_pass" },
+    { "id": "response-content-check", "description": "The final answer must include the text found in the uploaded file: hey, you are awesome!.", "type": "response_content_check" }
+  ]
+}
