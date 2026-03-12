@@ -9,13 +9,29 @@ export default function HomePage() {
   const runs = getRunRepository().listRuns();
 
   return (
-    <main style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 8 }}>Dify Skills Evaluator</h1>
-      <p style={{ marginTop: 0, maxWidth: 760 }}>
-        Run cases from the browser by choosing a test case, setting app
-        bindings, and observing the result, extracted variables, and trace
-        timeline inline.
-      </p>
+    <main className="page-shell">
+      <section className="page-hero">
+        <p className="page-kicker">Evaluation Console</p>
+        <div className="page-title-row">
+          <div>
+            <h1
+              className="page-title"
+              style={{ fontFamily: "var(--font-display), serif" }}
+            >
+              Dify Skills Evaluator
+            </h1>
+            <p className="page-copy">
+              Run a case, inspect what the agent actually did, and understand
+              why the score landed where it did without digging through raw
+              artifacts first.
+            </p>
+          </div>
+          <div className="page-note">
+            Choose a scenario, bind the target app credentials, launch the run,
+            then review the live session and final trace from the same workflow.
+          </div>
+        </div>
+      </section>
       <RunConsole cases={cases} initialRuns={runs} />
     </main>
   );

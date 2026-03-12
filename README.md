@@ -12,6 +12,10 @@ The evaluator is especially useful when you are:
 - comparing different skill implementations by score, findings, and token usage
 - forking this repo to add new runners or more realistic evaluation cases
 
+## Demo
+
+![Dify evaluator demo](./docs/dify-evaluator-demo.gif)
+
 ## What You Give The Evaluator
 
 Each evaluation run needs:
@@ -80,7 +84,7 @@ Requirements:
 Prepare your Dify environment first:
 
 - make sure you have a working Dify instance and the app/API credentials needed for the test cases
-- import the example chatflow DSL from [`dsl/test-chatflow.yml`](/Users/yang/Desktop/projects/dify-api-skills/dsl/test-chatflow.yml) into Dify and create an API key before running evaluations
+- import the example chatflow DSL from [`dsl/test-chatflow.yml`](./dsl/test-chatflow.yml) into Dify and create an API key before running evaluations
 
 Install dependencies:
 

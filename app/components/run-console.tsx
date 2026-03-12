@@ -78,35 +78,39 @@ function getStatusStyles(status: RunSessionView["status"]) {
   switch (status) {
     case "queued":
       return {
-        color: "#7a4d12",
-        background: "#f5e7c8",
-        borderColor: "#d8b57b",
+        color: "oklch(38% 0.08 72)",
+        background: "oklch(92% 0.05 82)",
+        borderColor: "oklch(74% 0.08 76)",
       };
     case "running":
       return {
-        color: "#0f4c5c",
-        background: "#d8eef2",
-        borderColor: "#7cb8c7",
+        color: "oklch(35% 0.05 132)",
+        background: "oklch(92% 0.04 132)",
+        borderColor: "oklch(73% 0.07 132)",
       };
     case "completed":
       return {
-        color: "#285b2a",
-        background: "#dff1df",
-        borderColor: "#8fc28f",
+        color: "oklch(33% 0.06 136)",
+        background: "oklch(92% 0.04 136)",
+        borderColor: "oklch(71% 0.08 136)",
       };
     case "failed":
       return {
-        color: "#7b261a",
-        background: "#f4d8d3",
-        borderColor: "#d29b92",
+        color: "oklch(34% 0.07 30)",
+        background: "oklch(91% 0.05 28)",
+        borderColor: "oklch(69% 0.08 28)",
       };
     case "timed_out":
       return {
-        color: "#7a3d00",
-        background: "#f8dfc2",
-        borderColor: "#d9a46a",
+        color: "oklch(37% 0.08 64)",
+        background: "oklch(91% 0.06 72)",
+        borderColor: "oklch(72% 0.09 70)",
       };
   }
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
 }
 
 function bindingStateFromCase(testCase: EvaluationTestCase, defaultUser: string): BindingFormState[] {
@@ -486,165 +490,122 @@ export function RunConsole({
   }, [activeSession?.runId, activeSession?.status]);
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gap: 24,
-        gridTemplateColumns: "220px minmax(0, 1fr)",
-        alignItems: "start",
-      }}
-    >
-      <aside
-        style={{
-          padding: 18,
-          border: "1px solid #bcae94",
-          background: "rgba(255,255,255,0.56)",
-          position: "sticky",
-          top: 24,
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Runner</div>
-        <div style={{ display: "grid", gap: 10 }}>
-          {availableRunners.map((runner) => (
-            <button
-              key={runner.id}
-              type="button"
-              onClick={() => setSelectedRunner(runner.id)}
-              style={{
-                textAlign: "left",
-                padding: 12,
-                border: "1px solid #1f1d18",
-                background: selectedRunner === runner.id ? "#1f1d18" : "#f5f1e8",
-                color: selectedRunner === runner.id ? "#f5f1e8" : "#1f1d18",
-                cursor: "pointer",
-              }}
+    <div className="workspace-grid">
+      <aside className="panel sidebar-card">
+        <div className="panel-inner stack-md">
+          <div>
+            <p className="eyebrow">Runner</p>
+            <h2
+              className="panel-title"
+              style={{ fontFamily: "var(--font-display), serif" }}
             >
-              <div style={{ fontWeight: 700 }}>{runner.label}</div>
-              <div style={{ fontSize: 13, marginTop: 4, opacity: 0.86 }}>{runner.description}</div>
-            </button>
-          ))}
+              Execution mode
+            </h2>
+            <p className="panel-copy">
+              Keep the runner choice lightweight. The main job here is to set up
+              a case and evaluate the result quickly.
+            </p>
+          </div>
+          <div className="stack-md">
+            {availableRunners.map((runner) => (
+              <button
+                key={runner.id}
+                type="button"
+                className="runner-choice"
+                onClick={() => setSelectedRunner(runner.id)}
+                style={{
+                  background:
+                    selectedRunner === runner.id ? "#201b14" : "rgba(255,252,246,0.82)",
+                  color: selectedRunner === runner.id ? "#f7f1e5" : "#201b14",
+                  cursor: "pointer",
+                }}
+              >
+                <strong>{runner.label}</strong>
+                <small>{runner.description}</small>
+              </button>
+            ))}
+          </div>
+          <div className="note-card">
+            <div className="summary-label">Stored locally</div>
+            <div className="muted">
+              Base URL, skill path, default user, and per-case API keys stay in
+              this browser to speed up repeated evaluations.
+            </div>
+          </div>
         </div>
       </aside>
 
-      <div style={{ display: "grid", gap: 24 }}>
-        <section
-          style={{
-            padding: 10,
-            border: "1px solid #bcae94",
-            background: "rgba(255,255,255,0.56)",
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: "10px 14px",
-                border: "1px solid #1f1d18",
-                background: activeTab === tab.id ? "#1f1d18" : "#f5f1e8",
-                color: activeTab === tab.id ? "#f5f1e8" : "#1f1d18",
-                cursor: "pointer",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="stack-lg">
+        <section className="panel">
+          <div className="panel-inner stack-md">
+            <div className="summary-strip">
+              <div className="summary-cell">
+                <span className="summary-label">Cases available</span>
+                <div className="summary-value">{cases.length}</div>
+              </div>
+              <div className="summary-cell">
+                <span className="summary-label">Saved sessions</span>
+                <div className="summary-value">{orderedSessionItems.length}</div>
+              </div>
+              <div className="summary-cell">
+                <span className="summary-label">Active runs</span>
+                <div className="summary-value">{recoverableSessions.length}</div>
+              </div>
+            </div>
+
+            <div className="segmented-row">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className="segmented-button"
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    background:
+                      activeTab === tab.id ? "#201b14" : "rgba(255,252,246,0.72)",
+                    color: activeTab === tab.id ? "#f7f1e5" : "#625748",
+                    borderColor:
+                      activeTab === tab.id ? "#201b14" : "rgba(32, 27, 20, 0.16)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         {activeTab === "run" ? (
           <>
-            <section
-              style={{
-                padding: 22,
-                border: "1px solid #bcae94",
-                background: "rgba(255,255,255,0.56)",
-              }}
-            >
-              <h2 style={{ marginTop: 0 }}>Run A Case</h2>
-              <p style={{ marginTop: 0, marginBottom: 16, color: "#5b5346" }}>
-                Real Dify Base URL, Skill Path, selected runner, and per-test-case API keys are saved locally in this browser.
-              </p>
-              <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span>Real Dify Base URL</span>
-                  <input
-                    value={realDifyBaseUrl}
-                    onChange={(event) => setRealDifyBaseUrl(event.target.value)}
-                    placeholder="https://your-dify.example.com/v1"
-                    style={{ padding: 10 }}
-                  />
-                </label>
+            <section className="panel panel-strong">
+              <div className="panel-inner stack-lg">
+                <div>
+                  <p className="eyebrow">Setup</p>
+                  <h2
+                    className="panel-title"
+                    style={{ fontFamily: "var(--font-display), serif" }}
+                  >
+                    Prepare the next evaluation
+                  </h2>
+                  <p className="panel-copy">
+                    Start with the scenario, confirm its objective, then supply
+                    only the bindings this case actually needs.
+                  </p>
+                </div>
 
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span>Skill Path</span>
-                  <input
-                    value={skillPath}
-                    onChange={(event) => setSkillPath(event.target.value)}
-                    placeholder="/absolute/path/to/your/skill"
-                    style={{ padding: 10 }}
-                  />
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span>Default User</span>
-                  <input
-                    value={defaultUser}
-                    onChange={(event) => setDefaultUser(event.target.value)}
-                    style={{ padding: 10 }}
-                  />
-                </label>
-
-                <section
-                  style={{
-                    display: "grid",
-                    gap: 0,
-                    padding: 0,
-                    border: "2px solid #1f1d18",
-                    background: "#f3ebdd",
-                    overflow: "hidden",
-                  }}
-                >
-                    <div
-                      style={{
-                        padding: 18,
-                        background: "#1f1d18",
-                        color: "#f5f1e8",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>
-                        Test Case Setup
-                      </div>
-                      <div style={{ color: "#d7cfbf", fontSize: 14 }}>
-                        Choose the scenario, review its objective, and provide the app bindings required for this case.
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8,
-                        padding: 18,
-                        borderTop: "2px solid #d6cab5",
-                        background: "transparent",
-                      }}
-                    >
-                      <span style={{ fontWeight: 700, fontSize: 18 }}>Test Case</span>
-                      <span style={{ color: "#5b5346", fontSize: 14 }}>
-                        Choose the evaluation scenario to run.
+                <form onSubmit={handleSubmit} className="setup-block">
+                  <div className="field-grid">
+                    <div className="field">
+                      <span className="field-label">1. Choose a test case</span>
+                      <span className="field-hint">
+                        Pick the scenario you want to verify before worrying
+                        about environment details.
                       </span>
                       <select
                         value={selectedCaseId}
                         onChange={(event) => setSelectedCaseId(event.target.value)}
-                        style={{
-                          padding: 12,
-                          border: "1px solid #1f1d18",
-                          background: "#fffdf8",
-                          fontSize: 16,
-                        }}
+                        className="text-select"
                       >
                         {cases.map((testCase) => (
                           <option key={testCase.id} value={testCase.id}>
@@ -655,22 +616,17 @@ export function RunConsole({
                     </div>
 
                     {selectedCase ? (
-                      <div
-                        style={{
-                          padding: 18,
-                          borderTop: "1px solid #d6cab5",
-                          background: "rgba(255,255,255,0.28)",
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Case Objective</div>
-                        <div style={{ marginBottom: 12 }}>{selectedCase.objective}</div>
+                      <div className="note-card">
+                        <div className="summary-label">Case objective</div>
+                        <div style={{ lineHeight: 1.6 }}>{selectedCase.objective}</div>
                         {selectedCase.artifacts?.length ? (
-                          <div>
-                            <div style={{ fontWeight: 700, marginBottom: 6 }}>Artifacts</div>
-                            <ul style={{ margin: 0 }}>
+                          <div style={{ marginTop: 14 }}>
+                            <div className="summary-label">Artifacts in play</div>
+                            <ul className="plain-list">
                               {selectedCase.artifacts.map((artifact) => (
                                 <li key={artifact.artifactId}>
-                                  {artifact.artifactId}: {artifact.displayName ?? artifact.path}
+                                  {artifact.artifactId}:{" "}
+                                  {artifact.displayName ?? artifact.path}
                                 </li>
                               ))}
                             </ul>
@@ -678,171 +634,212 @@ export function RunConsole({
                         ) : null}
                       </div>
                     ) : null}
+                  </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 0,
-                        borderTop: "1px solid #d6cab5",
-                      }}
-                    >
+                  <div className="field-row">
+                    <div className="field">
+                      <label htmlFor="real-dify-base-url">2. Dify base URL</label>
+                      <span className="field-hint">
+                        The real target base URL for the proxied app calls.
+                      </span>
+                      <input
+                        id="real-dify-base-url"
+                        value={realDifyBaseUrl}
+                        onChange={(event) => setRealDifyBaseUrl(event.target.value)}
+                        placeholder="https://your-dify.example.com/v1"
+                        className="text-input"
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="skill-path">3. Skill path</label>
+                      <span className="field-hint">
+                        Absolute path to the skill under evaluation.
+                      </span>
+                      <input
+                        id="skill-path"
+                        value={skillPath}
+                        onChange={(event) => setSkillPath(event.target.value)}
+                        placeholder="/absolute/path/to/your/skill"
+                        className="text-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="default-user">4. Default user identity</label>
+                    <span className="field-hint">
+                      Reused as the default user across bindings unless you
+                      override it per app.
+                    </span>
+                    <input
+                      id="default-user"
+                      value={defaultUser}
+                      onChange={(event) => setDefaultUser(event.target.value)}
+                      className="text-input"
+                    />
+                  </div>
+
+                  <div className="stack-md">
+                    <div>
+                      <div className="field-label">5. Required app bindings</div>
+                      <div className="field-hint">
+                        Only the apps required by the selected case are shown
+                        here.
+                      </div>
+                    </div>
+                    <div className="stack-md">
                       {bindingState.map((binding) => (
-                        <div
-                          key={binding.appAlias}
-                          style={{
-                            padding: 18,
-                            background: "transparent",
-                            display: "grid",
-                            gap: 10,
-                            borderTop: "1px solid #e4d7c0",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700 }}>
-                            App Binding: {binding.appAlias} ({binding.appType})
+                        <div key={binding.appAlias} className="binding-card">
+                          <div className="binding-header" style={{ marginBottom: 12 }}>
+                            <div>
+                              <h3 className="binding-title">
+                                {binding.appAlias}
+                              </h3>
+                              <div className="muted">{binding.appType}</div>
+                            </div>
+                            <span className="pill">Required for this case</span>
                           </div>
-                          <label style={{ display: "grid", gap: 6 }}>
-                            <span>API Key</span>
-                            <input
-                              type="password"
-                              value={binding.apiKey}
-                              onChange={(event) =>
-                                updateBinding(binding.appAlias, "apiKey", event.target.value)
-                              }
-                              placeholder="app-xxx"
-                              style={{ padding: 10 }}
-                            />
-                          </label>
-                          <label style={{ display: "grid", gap: 6 }}>
-                            <span>User</span>
-                            <input
-                              value={binding.user}
-                              onChange={(event) =>
-                                updateBinding(binding.appAlias, "user", event.target.value)
-                              }
-                              style={{ padding: 10 }}
-                            />
-                          </label>
+                          <div className="field-row">
+                            <div className="field">
+                              <label htmlFor={`api-key-${binding.appAlias}`}>
+                                API key
+                              </label>
+                              <input
+                                id={`api-key-${binding.appAlias}`}
+                                type="password"
+                                value={binding.apiKey}
+                                onChange={(event) =>
+                                  updateBinding(
+                                    binding.appAlias,
+                                    "apiKey",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="app-xxx"
+                                className="text-input"
+                              />
+                            </div>
+                            <div className="field">
+                              <label htmlFor={`user-${binding.appAlias}`}>
+                                User
+                              </label>
+                              <input
+                                id={`user-${binding.appAlias}`}
+                                value={binding.user}
+                                onChange={(event) =>
+                                  updateBinding(
+                                    binding.appAlias,
+                                    "user",
+                                    event.target.value,
+                                  )
+                                }
+                                className="text-input"
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
-                </section>
-
-                {error ? (
-                  <div
-                    style={{
-                      padding: 12,
-                      border: "1px solid #8b3b2e",
-                      background: "#f5d7ce",
-                      color: "#4d1e16",
-                    }}
-                  >
-                    {error}
                   </div>
-                ) : null}
 
-                {selectedCaseCooldownRemainingMs > 0 ? (
-                  <div
-                    style={{
-                      padding: 12,
-                      border: "1px solid #bcae94",
-                      background: "#faf7f0",
-                      color: "#5b5346",
-                    }}
-                  >
-                    You can rerun <strong>{caseTitleById[selectedCaseId] ?? selectedCaseId}</strong> in{" "}
-                    <strong>{Math.ceil(selectedCaseCooldownRemainingMs / 1000)}s</strong>. You can still switch cases and launch another one immediately.
-                  </div>
-                ) : null}
+                  {error ? <div className="alert alert-danger">{error}</div> : null}
 
-                <button
-                  type="submit"
-                  disabled={isSelectedCaseSubmitting || selectedCaseCooldownRemainingMs > 0}
-                  style={{
-                    padding: "12px 16px",
-                    border: "1px solid #1f1d18",
-                    background:
-                      isSelectedCaseSubmitting || selectedCaseCooldownRemainingMs > 0 ? "#c6bda9" : "#1f1d18",
-                    color: "#f5f1e8",
-                    cursor:
-                      isSelectedCaseSubmitting || selectedCaseCooldownRemainingMs > 0 ? "wait" : "pointer",
-                  }}
-                >
-                  {isSelectedCaseSubmitting
-                    ? "Starting..."
-                    : selectedCaseCooldownRemainingMs > 0
-                      ? `Wait ${Math.ceil(selectedCaseCooldownRemainingMs / 1000)}s`
-                      : "Run Test Case"}
-                </button>
-              </form>
-            </section>
+                  {selectedCaseCooldownRemainingMs > 0 ? (
+                    <div className="alert alert-neutral">
+                      You can rerun{" "}
+                      <strong>{caseTitleById[selectedCaseId] ?? selectedCaseId}</strong>{" "}
+                      in{" "}
+                      <strong>
+                        {Math.ceil(selectedCaseCooldownRemainingMs / 1000)}s
+                      </strong>
+                      . You can still switch cases and launch another one
+                      immediately.
+                    </div>
+                  ) : null}
 
-            {activeSession && isLiveSessionStatus(activeSession.status) ? (
-              <section
-                style={{
-                  padding: 18,
-                  border: "1px solid #1f1d18",
-                  background: "#f3ebdd",
-                }}
-              >
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                  <div className="live-banner">
                     <div>
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>Run is active</div>
-                      <div style={{ color: "#5b5346" }}>
-                        Run <strong>{activeSession.runId}</strong> for{" "}
-                        <strong>{caseTitleById[activeSession.testCaseId] ?? activeSession.testCaseId}</strong> is currently{" "}
-                        <strong>{activeSession.status}</strong>.
+                      <div className="summary-label">Primary action</div>
+                      <div className="muted">
+                        Launch the evaluation once the case and bindings look
+                        right.
                       </div>
                     </div>
                     <button
-                      type="button"
-                      onClick={() => setActiveTab("sessions")}
-                      style={{
-                        padding: "10px 14px",
-                        border: "1px solid #1f1d18",
-                        background: "#1f1d18",
-                        color: "#f5f1e8",
-                        cursor: "pointer",
-                      }}
+                      type="submit"
+                      className="button-primary"
+                      disabled={
+                        isSelectedCaseSubmitting ||
+                        selectedCaseCooldownRemainingMs > 0
+                      }
                     >
-                      View In Sessions
+                      {isSelectedCaseSubmitting
+                        ? "Starting evaluation..."
+                        : selectedCaseCooldownRemainingMs > 0
+                          ? `Wait ${Math.ceil(
+                              selectedCaseCooldownRemainingMs / 1000,
+                            )}s`
+                          : "Run evaluation"}
                     </button>
                   </div>
-                  <div style={{ color: "#5b5346", fontSize: 14 }}>
-                    Live logs and completed reports now live in the Sessions tab, where you can switch between running and finished sessions.
+                </form>
+              </div>
+            </section>
+
+            {activeSession && isLiveSessionStatus(activeSession.status) ? (
+              <section className="panel">
+                <div className="panel-inner live-banner">
+                  <div>
+                    <p className="eyebrow">Live session</p>
+                    <h2
+                      className="panel-title"
+                      style={{ fontFamily: "var(--font-display), serif" }}
+                    >
+                      Current run in progress
+                    </h2>
+                    <p className="panel-copy">
+                      Run <strong>{activeSession.runId}</strong> for{" "}
+                      <strong>
+                        {caseTitleById[activeSession.testCaseId] ??
+                          activeSession.testCaseId}
+                      </strong>{" "}
+                      is currently <strong>{activeSession.status}</strong>.
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => setActiveTab("sessions")}
+                  >
+                    Open live session
+                  </button>
                 </div>
               </section>
             ) : null}
           </>
         ) : (
-          <div style={{ display: "grid", gap: 24 }}>
-            <section
-              style={{
-                padding: 22,
-                border: "1px solid #bcae94",
-                background: "rgba(255,255,255,0.56)",
-              }}
-            >
-              <h2 style={{ marginTop: 0 }}>Sessions</h2>
-              <p style={{ marginTop: 0, color: "#5b5346" }}>
-                Monitor running tasks, reopen them after a refresh, and review completed session reports in one place.
-              </p>
-              {recoveryError ? (
-                <div
-                  style={{
-                    padding: 12,
-                    border: "1px solid #8b3b2e",
-                    background: "#f5d7ce",
-                    color: "#4d1e16",
-                    marginBottom: 12,
-                  }}
+          <section className="panel">
+            <div className="panel-inner stack-md">
+              <div>
+                <p className="eyebrow">Sessions</p>
+                <h2
+                  className="panel-title"
+                  style={{ fontFamily: "var(--font-display), serif" }}
                 >
-                  {recoveryError}
-                </div>
+                  Review runs over time
+                </h2>
+                <p className="panel-copy">
+                  Monitor active work, reopen live logs after a refresh, and
+                  jump back into completed reports without losing context.
+                </p>
+              </div>
+
+              {recoveryError ? (
+                <div className="alert alert-danger">{recoveryError}</div>
               ) : null}
+
               {orderedSessionItems.length > 0 ? (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className="session-list">
                   {orderedSessionItems.map((session) => {
                     const isSelected = activeSession?.runId === session.runId;
                     const isLastViewed = session.runId === lastViewedRunId;
@@ -853,105 +850,89 @@ export function RunConsole({
                         key={session.runId}
                         href={`/runs/${session.runId}`}
                         onClick={() => setLastViewedRunId(session.runId)}
-                        style={{
-                          textAlign: "left",
-                          padding: 14,
-                          border: isLastViewed ? "2px solid #1f1d18" : "1px solid #d6cab5",
-                          background: isSelected ? "#efe4d1" : "#faf7f0",
-                          cursor: "pointer",
-                          color: "inherit",
-                          textDecoration: "none",
-                          display: "block",
-                        }}
+                        className="session-link"
                       >
-                        <div
+                        <article
+                          className="session-card"
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: 24,
-                            flexWrap: "wrap",
-                            alignItems: "flex-start",
+                            borderColor: isLastViewed
+                              ? "#201b14"
+                              : "rgba(32, 27, 20, 0.12)",
+                            borderWidth: isLastViewed ? 2 : 1,
+                            background: isSelected
+                              ? "#f1e5d2"
+                              : "rgba(255,252,246,0.76)",
                           }}
                         >
-                          <div
-                            style={{
-                              display: "grid",
-                              gap: 8,
-                              flex: "1 1 420px",
-                              minWidth: 0,
-                            }}
-                          >
-                            <div style={{ fontWeight: 700 }}>{session.runId}</div>
-                            <div>{caseTitleById[session.testCaseId] ?? session.testCaseId}</div>
-                            {!session.isActive && session.result ? (
+                          <div className="binding-header">
+                            <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                               <div>
-                                <span
+                                <div className="summary-label">Run ID</div>
+                                <div
                                   style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 10,
-                                    padding: "6px 12px",
-                                    border: "1px solid #d2b666",
-                                    background: "#fff3c8",
-                                    color: "#6e4c00",
-                                    fontWeight: 700,
+                                    fontFamily: "var(--font-mono), monospace",
+                                    fontSize: "0.95rem",
                                   }}
                                 >
-                                  <span style={{ opacity: 0.85 }}>Score</span>
-                                  <span style={{ fontSize: 26, lineHeight: 1 }}>
-                                    {session.result.score.totalScore}
-                                  </span>
-                                </span>
+                                  {session.runId}
+                                </div>
                               </div>
-                            ) : null}
+                              <div>
+                                <h3 className="session-title" style={{ marginBottom: 4 }}>
+                                  {caseTitleById[session.testCaseId] ??
+                                    session.testCaseId}
+                                </h3>
+                                <div className="muted">
+                                  {session.isActive
+                                    ? "Live logs available now"
+                                    : "Completed report ready to inspect"}
+                                </div>
+                              </div>
+                              {!session.isActive && session.result ? (
+                                <div className="score-chip">
+                                  Score <strong>{session.result.score.totalScore}</strong>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            <div className="session-meta">
+                              <span
+                                className="status-badge"
+                                style={{
+                                  borderColor: statusStyles.borderColor,
+                                  background: statusStyles.background,
+                                  color: statusStyles.color,
+                                }}
+                              >
+                                {session.status.replace("_", " ")}
+                              </span>
+                              <div>Created: {formatDateTime(session.createdAt)}</div>
+                              <div>
+                                {session.isActive ? "Updated" : "Finished"}:{" "}
+                                {formatDateTime(session.updatedAt)}
+                              </div>
+                              <div>
+                                {isLastViewed
+                                  ? "Last viewed"
+                                  : session.isActive
+                                    ? "Open live logs"
+                                    : "Open report"}
+                              </div>
+                            </div>
                           </div>
-                          <div
-                            style={{
-                              display: "grid",
-                              gap: 10,
-                              textAlign: "right",
-                              color: "#5b5346",
-                              justifyItems: "end",
-                              flex: "0 0 320px",
-                              width: 320,
-                              maxWidth: "100%",
-                              marginLeft: "auto",
-                              alignContent: "start",
-                            }}
-                          >
-                            <div
-                              style={{
-                                padding: "4px 10px",
-                                border: `1px solid ${statusStyles.borderColor}`,
-                                background: statusStyles.background,
-                                color: statusStyles.color,
-                                fontWeight: 700,
-                                textTransform: "capitalize",
-                              }}
-                            >
-                              {session.status.replace("_", " ")}
-                            </div>
-                            <div>
-                              Created: {new Date(session.createdAt).toLocaleString()}
-                            </div>
-                            <div>
-                              {session.isActive ? "Updated" : "Finished"}:{" "}
-                              {new Date(session.updatedAt).toLocaleString()}
-                            </div>
-                            <div>
-                              {isLastViewed ? "Last viewed" : session.isActive ? "Open live logs" : "Open report"}
-                            </div>
-                          </div>
-                        </div>
+                        </article>
                       </Link>
                     );
                   })}
                 </div>
               ) : (
-                <p style={{ marginBottom: 0 }}>No sessions yet.</p>
+                <div className="note-card">
+                  No sessions yet. Run an evaluation first and this area becomes
+                  your running history and report index.
+                </div>
               )}
-            </section>
-          </div>
+            </div>
+          </section>
         )}
       </div>
     </div>

@@ -126,28 +126,22 @@ export function RunDetailClient({
 
   if (!session) {
     return (
-      <section
-        style={{
-          padding: 22,
-          border: "1px solid #bcae94",
-          background: "rgba(255,255,255,0.56)",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Session Detail</h2>
+      <section className="panel">
+        <div className="panel-inner">
+        <h2
+          className="panel-title"
+          style={{ fontFamily: "var(--font-display), serif" }}
+        >
+          Session detail
+        </h2>
         {isLoading ? (
-          <p style={{ marginBottom: 0 }}>Loading session...</p>
+          <div className="note-card">Loading session...</div>
         ) : (
-          <div
-            style={{
-              padding: 12,
-              border: "1px solid #8b3b2e",
-              background: "#f5d7ce",
-              color: "#4d1e16",
-            }}
-          >
+          <div className="alert alert-danger">
             {error ?? "Session not found."}
           </div>
         )}
+        </div>
       </section>
     );
   }
@@ -155,131 +149,112 @@ export function RunDetailClient({
   const caseLabel = caseTitleById[session.testCaseId] ?? session.testCaseId;
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section
-        style={{
-          padding: 22,
-          border: "1px solid #bcae94",
-          background: "rgba(255,255,255,0.56)",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Session Overview</h2>
-        <div style={{ display: "grid", gap: 6 }}>
+    <div className="stack-lg">
+      <section className="panel">
+        <div className="panel-inner stack-md">
           <div>
-            <strong>Run ID:</strong> {session.runId}
+            <p className="eyebrow">Overview</p>
+            <h2
+              className="panel-title"
+              style={{ fontFamily: "var(--font-display), serif" }}
+            >
+              Session snapshot
+            </h2>
           </div>
-          <div>
-            <strong>Case:</strong> {caseLabel}
-          </div>
-          <div>
-            <strong>Case ID:</strong> {session.testCaseId}
-          </div>
-          <div>
-            <strong>Status:</strong> {session.status}
-          </div>
-          <div>
-            <strong>Created:</strong> {new Date(session.createdAt).toLocaleString()}
-          </div>
-          <div>
-            <strong>Last Update:</strong> {new Date(session.updatedAt).toLocaleString()}
-          </div>
+          <dl className="detail-grid">
+            <div className="detail-item">
+              <dt>Run ID</dt>
+              <dd style={{ fontFamily: "var(--font-mono), monospace" }}>
+                {session.runId}
+              </dd>
+            </div>
+            <div className="detail-item">
+              <dt>Status</dt>
+              <dd>{session.status}</dd>
+            </div>
+            <div className="detail-item">
+              <dt>Case</dt>
+              <dd>{caseLabel}</dd>
+            </div>
+            <div className="detail-item">
+              <dt>Case ID</dt>
+              <dd>{session.testCaseId}</dd>
+            </div>
+            <div className="detail-item">
+              <dt>Created</dt>
+              <dd>{new Date(session.createdAt).toLocaleString()}</dd>
+            </div>
+            <div className="detail-item">
+              <dt>Last update</dt>
+              <dd>{new Date(session.updatedAt).toLocaleString()}</dd>
+            </div>
+          </dl>
         </div>
       </section>
 
-      <section
-        style={{
-          padding: 22,
-          border: "1px solid #bcae94",
-          background: "rgba(255,255,255,0.56)",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Session Logs</h2>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 16,
-            alignItems: "center",
-            marginBottom: 14,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ color: "#5b5346" }}>
-            {isLiveSessionStatus(session.status)
-              ? "Logs update automatically while the session is active."
-              : "This session has finished. Logs below are persisted for review."}
+      <section className="panel">
+        <div className="panel-inner stack-md">
+          <div className="live-banner">
+            <div>
+              <p className="eyebrow">Logs</p>
+              <h2
+                className="panel-title"
+                style={{ fontFamily: "var(--font-display), serif" }}
+              >
+                Live session output
+              </h2>
+              <p className="panel-copy">
+                {isLiveSessionStatus(session.status)
+                  ? "Logs update automatically while the session is active."
+                  : "This session has finished. Logs below are persisted for review."}
+              </p>
+            </div>
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 14,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={autoScrollLogs}
+                onChange={(event) => setAutoScrollLogs(event.target.checked)}
+              />
+              Auto-scroll logs
+            </label>
           </div>
-          <label
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: 14,
-            }}
+          {error ? (
+            <div className="alert alert-danger">{error}</div>
+          ) : null}
+          {session.error ? (
+            <div className="alert alert-danger">{session.error}</div>
+          ) : null}
+          <pre
+            ref={logContainerRef}
+            className="log-surface"
+            style={{ minHeight: 220, maxHeight: 420 }}
           >
-            <input
-              type="checkbox"
-              checked={autoScrollLogs}
-              onChange={(event) => setAutoScrollLogs(event.target.checked)}
-            />
-            Auto-scroll logs
-          </label>
+            {session.logs.length > 0 ? session.logs.join("\n") : "Waiting for logs..."}
+          </pre>
         </div>
-        {error ? (
-          <div
-            style={{
-              padding: 12,
-              border: "1px solid #8b3b2e",
-              background: "#f5d7ce",
-              color: "#4d1e16",
-              marginBottom: 12,
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
-        {session.error ? (
-          <div
-            style={{
-              padding: 12,
-              border: "1px solid #8b3b2e",
-              background: "#f5d7ce",
-              color: "#4d1e16",
-              marginBottom: 12,
-            }}
-          >
-            {session.error}
-          </div>
-        ) : null}
-        <pre
-          ref={logContainerRef}
-          style={{
-            margin: 0,
-            padding: 14,
-            minHeight: 180,
-            maxHeight: 360,
-            overflow: "auto",
-            border: "1px solid #d6cab5",
-            background: "#11110f",
-            color: "#e8ddc8",
-            whiteSpace: "pre-wrap",
-            overflowWrap: "anywhere",
-            wordBreak: "break-word",
-          }}
-        >
-          {session.logs.length > 0 ? session.logs.join("\n") : "Waiting for logs..."}
-        </pre>
       </section>
 
       {session.result ? (
-        <section
-          style={{
-            padding: 22,
-            border: "1px solid #bcae94",
-            background: "rgba(255,255,255,0.56)",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Session Report</h2>
+        <section className="stack-md">
+          <div>
+            <p className="eyebrow">Report</p>
+            <h2
+              className="panel-title"
+              style={{ fontFamily: "var(--font-display), serif" }}
+            >
+              Evaluation report
+            </h2>
+            <p className="panel-copy">
+              Summary first, details on demand, raw evidence when you need it.
+            </p>
+          </div>
           <RunResultView result={session.result} />
         </section>
       ) : null}

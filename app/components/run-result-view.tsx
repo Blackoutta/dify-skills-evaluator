@@ -1,29 +1,447 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
-import type { CSSProperties } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import type { EvaluationRunResult, NormalizedBody } from "@/src/server/types/contracts";
 
 function Section({
   title,
+  description,
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  description?: string;
+  children: ReactNode;
 }) {
   return (
-    <section
-      style={{
-        padding: 18,
-        border: "1px solid #bcae94",
-        background: "rgba(255,255,255,0.62)",
-      }}
-    >
-      <h3 style={{ marginTop: 0, marginBottom: 12 }}>{title}</h3>
-      {children}
+    <section className="panel">
+      <div className="panel-inner">
+        <h3
+          className="panel-title"
+          style={{
+            marginBottom: description ? 6 : 12,
+            fontFamily: "var(--font-display), serif",
+            fontSize: "1.3rem",
+          }}
+        >
+          {title}
+        </h3>
+        {description ? <p className="panel-copy" style={{ marginBottom: 16 }}>{description}</p> : null}
+        {children}
+      </div>
     </section>
+  );
+}
+
+function scoreLabel(score: number): string {
+  if (score >= 90) return "Excellent";
+  if (score >= 75) return "Strong";
+  if (score >= 60) return "Mixed";
+  if (score >= 40) return "Fragile";
+  return "Needs work";
+}
+
+function scoreSummary(score: number): string {
+  if (score >= 90) return "The run stayed aligned with the expected flow and landed cleanly.";
+  if (score >= 75) return "The run mostly worked, with a few issues worth tightening.";
+  if (score >= 60) return "The run completed, but the evaluator found meaningful gaps.";
+  if (score >= 40) return "The run is unstable and likely needs prompt or logic changes.";
+  return "The run missed core expectations and should be treated as a failing baseline.";
+}
+
+function summarizeTopFinding(result: EvaluationRunResult): string {
+  if (result.score.findings.length === 0) {
+    return "No findings were attached. This run has a clean evaluator report.";
+  }
+
+  const topFinding = result.score.findings[0];
+  return summarizeFinding(topFinding.message);
+}
+
+function formatTimestamp(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function renderSeverityLabel(severity: string): string {
+  return severity.replace(/_/g, " ");
+}
+
+function renderPreBlock(content: string, light = false) {
+  return (
+    <pre className={`code-surface ${light ? "code-surface-light" : ""}`}>
+      {content}
+    </pre>
+  );
+}
+
+function renderJsonBlock(value: unknown, light = false) {
+  return renderPreBlock(JSON.stringify(value, null, 2), light);
+}
+
+function getTopLossMetric(
+  metrics: Array<{
+    label: string;
+    lostContribution: number;
+  }>,
+) {
+  return metrics.reduce((highest, metric) => {
+    if (!highest || metric.lostContribution > highest.lostContribution) {
+      return metric;
+    }
+    return highest;
+  }, null as { label: string; lostContribution: number } | null);
+}
+
+function compactPath(path: string): string {
+  return path.length > 72 ? `${path.slice(0, 69)}...` : path;
+}
+
+function Divider() {
+  return <div className="panel-divider" style={{ margin: "18px 0" }} />;
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="detail-item">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function FindingsList({
+  findings,
+}: {
+  findings: EvaluationRunResult["score"]["findings"];
+}) {
+  if (findings.length === 0) {
+    return <div className="muted">No findings for this run.</div>;
+  }
+
+  return (
+    <ul className="findings-list">
+      {findings.map((finding, index) => (
+        <li key={`${finding.code}-${index}`}>
+          <strong>{renderSeverityLabel(finding.severity)}:</strong> {finding.message}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MetricSummary({
+  label,
+  description,
+  score,
+  weight,
+  contribution,
+  maxContribution,
+  lostContribution,
+  relatedFindings,
+}: {
+  label: string;
+  description: string;
+  score: number;
+  weight: number;
+  contribution: number;
+  maxContribution: number;
+  lostContribution: number;
+  relatedFindings: EvaluationRunResult["score"]["findings"];
+}) {
+  return (
+    <details className="disclosure metric-card">
+      <summary>
+        <div className="summary-row">
+          <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <strong>{label}</strong>
+              <InfoTooltip label={label} description={description} />
+            </div>
+            <div className="muted">{description}</div>
+          </div>
+          <div className="pill-row">
+            <span className="pill">{score} / 100</span>
+            <span className="pill">{weight}% weight</span>
+            <span className="pill">
+              Lost {formatWeightedPoints(lostContribution)} pts
+            </span>
+          </div>
+        </div>
+      </summary>
+      <div className="disclosure-content">
+        <div className="detail-grid" style={{ marginBottom: 14 }}>
+          <InfoRow
+            label="Contribution"
+            value={`${formatWeightedPoints(contribution)} / ${formatWeightedPoints(
+              maxContribution,
+            )}`}
+          />
+          <InfoRow
+            label="Points lost"
+            value={`${formatWeightedPoints(lostContribution)} points`}
+          />
+        </div>
+        {relatedFindings.length > 0 ? (
+          <>
+            <div className="summary-label">What went wrong</div>
+            <ul className="findings-list">
+              {relatedFindings.map((finding, index) => (
+                <li key={`${label}-${finding.code}-${index}`}>
+                  {summarizeFinding(finding.message)}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <div className="muted">
+            No detailed finding was attached to this metric.
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function TraceDisclosure({
+  step,
+}: {
+  step: EvaluationRunResult["trace"][number];
+}) {
+  return (
+    <details className="disclosure trace-card">
+      <summary>
+        <div className="summary-row">
+          <div style={{ display: "grid", gap: 6 }}>
+            <strong>
+              Step {step.stepIndex}: {step.appAlias} {step.request.method}
+            </strong>
+            <div className="muted">{compactPath(step.request.path)}</div>
+          </div>
+          <div className="pill-row">
+            <span className="pill">HTTP {step.response.status}</span>
+          </div>
+        </div>
+      </summary>
+      <div className="disclosure-content">
+        <div className="trace-meta">
+          Full path:{" "}
+          <span style={{ fontFamily: "var(--font-mono), monospace" }}>
+            {step.request.path}
+          </span>
+        </div>
+        <div className="stack-md">
+          <div>
+            <div className="summary-label">Request body</div>
+            {renderPreBlock(renderBody(step.request.body), true)}
+          </div>
+          <div>
+            <div className="summary-label">Response body</div>
+            {renderPreBlock(renderBody(step.response.body), true)}
+          </div>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+export function RunResultView({ result }: { result: EvaluationRunResult }) {
+  const weights = buildScoreWeights(result);
+  const metrics = [
+    {
+      key: "sequenceScore",
+      score: result.score.breakdown.sequenceScore,
+      weight: weights.sequenceScore,
+      ...metricMeta.sequenceScore,
+    },
+    {
+      key: "resultScore",
+      score: result.score.breakdown.resultScore,
+      weight: weights.resultScore,
+      ...metricMeta.resultScore,
+    },
+    {
+      key: "conversationStateScore",
+      score: result.score.breakdown.conversationStateScore,
+      weight: weights.conversationStateScore,
+      ...metricMeta.conversationStateScore,
+    },
+    ...(result.score.breakdown.contentScore === undefined
+      ? []
+      : [
+          {
+            key: "contentScore",
+            score: result.score.breakdown.contentScore,
+            weight: weights.contentScore ?? 0,
+            ...metricMeta.contentScore,
+          },
+        ]),
+    ...(result.score.breakdown.tokenEfficiencyScore === undefined
+      ? []
+      : [
+          {
+            key: "tokenEfficiencyScore",
+            score: result.score.breakdown.tokenEfficiencyScore,
+            weight: weights.tokenEfficiencyScore ?? 0,
+            ...metricMeta.tokenEfficiencyScore,
+          },
+        ]),
+  ].map((metric) => {
+    const maxContribution = metric.weight;
+    const contribution = Math.round(((metric.score / 100) * metric.weight) * 100) / 100;
+    const lostContribution = Math.round((maxContribution - contribution) * 100) / 100;
+    const relatedFindings = result.score.findings.filter((finding) =>
+      findingAppliesToMetric(metric.key as MetricKey, finding.message, finding.code),
+    );
+
+    return {
+      ...metric,
+      contribution,
+      maxContribution,
+      lostContribution,
+      relatedFindings,
+    };
+  });
+  const formula = metrics.map((metric) => `${metric.label} ${metric.weight}% x ${metric.score}`).join(" + ");
+  const totalLost = Math.round((100 - result.score.totalScore) * 100) / 100;
+  const topLossMetric = getTopLossMetric(metrics);
+  const topFinding = summarizeTopFinding(result);
+
+  return (
+    <div className="result-hero">
+      <Section
+        title="Run Verdict"
+        description="Start here for the top-line read before drilling into scoring math and raw trace data."
+      >
+        <div className="verdict-grid">
+          <div className="verdict-card">
+            <div className="verdict-label">Total score</div>
+            <div
+              className="verdict-score"
+              style={{ fontFamily: "var(--font-display), serif" }}
+            >
+              {result.score.totalScore}
+            </div>
+            <div style={{ fontSize: "1.1rem", marginTop: 10 }}>
+              <strong>{scoreLabel(result.score.totalScore)}</strong>
+            </div>
+            <p className="panel-copy" style={{ marginTop: 10 }}>
+              {scoreSummary(result.score.totalScore)}
+            </p>
+          </div>
+
+          <div className="verdict-card">
+            <div className="verdict-label">Primary issue</div>
+            <div style={{ fontSize: "1.05rem", lineHeight: 1.45 }}>{topFinding}</div>
+          </div>
+
+          <div className="verdict-card">
+            <div className="verdict-label">Largest score drop</div>
+            <div style={{ fontSize: "1.05rem", lineHeight: 1.45 }}>
+              {topLossMetric && topLossMetric.lostContribution > 0
+                ? `${topLossMetric.label} lost ${formatWeightedPoints(
+                    topLossMetric.lostContribution,
+                  )} points`
+                : "No major score loss detected"}
+            </div>
+          </div>
+        </div>
+
+        <Divider />
+
+        <dl className="detail-grid">
+          <InfoRow label="Run ID" value={<Link href={`/runs/${result.runId}`}>{result.runId}</Link>} />
+          <InfoRow label="Status" value={result.status} />
+          <InfoRow label="Case" value={result.testCaseId} />
+          <InfoRow label="Created" value={formatTimestamp(result.createdAt)} />
+          <InfoRow
+            label="Token usage"
+            value={
+              result.runner.usage
+                ? `${result.runner.usage.totalTokens ?? "unknown"} total${
+                    result.runner.usage.inputTokens !== undefined
+                      ? `, ${result.runner.usage.inputTokens} input`
+                      : ""
+                  }${
+                    result.runner.usage.cachedInputTokens !== undefined
+                      ? ` (${result.runner.usage.cachedInputTokens} cached)`
+                      : ""
+                  }${
+                    result.runner.usage.outputTokens !== undefined
+                      ? `, ${result.runner.usage.outputTokens} output`
+                      : ""
+                  }`
+                : "No usage data attached"
+            }
+          />
+          <InfoRow
+            label="Findings"
+            value={`${result.score.findings.length} attached`}
+          />
+        </dl>
+      </Section>
+
+      <Section
+        title="Score Breakdown"
+        description="Open the metrics that matter. Each panel shows how much weight it carried and what caused point loss."
+      >
+        <div className="note-card" style={{ marginBottom: 16 }}>
+          <div className="summary-label">Weighted formula</div>
+          <div style={{ lineHeight: 1.6 }}>{formula}</div>
+          <div className="muted" style={{ marginTop: 8 }}>
+            Total lost: {formatWeightedPoints(totalLost)} points
+          </div>
+        </div>
+        <div className="details-list">
+          {metrics.map((metric) => (
+            <MetricSummary
+              key={metric.key}
+              label={metric.label}
+              description={metric.description}
+              score={metric.score}
+              weight={metric.weight}
+              contribution={metric.contribution}
+              maxContribution={metric.maxContribution}
+              lostContribution={metric.lostContribution}
+              relatedFindings={metric.relatedFindings}
+            />
+          ))}
+        </div>
+
+        <Divider />
+
+        <div className="summary-label">All findings</div>
+        <FindingsList findings={result.score.findings} />
+      </Section>
+
+      <Section
+        title="Variables"
+        description="Captured values that can be reused or inspected after the run."
+      >
+        {Object.keys(result.variables).length === 0 ? (
+          <div className="note-card">No extracted variables for this run.</div>
+        ) : (
+          renderJsonBlock(result.variables, true)
+        )}
+      </Section>
+
+      <Section
+        title="Trace Timeline"
+        description="Each request is collapsed by default so you can scan the flow first and open only the steps that matter."
+      >
+        <div className="details-list">
+          {result.trace.map((step) => (
+            <TraceDisclosure key={step.id} step={step} />
+          ))}
+        </div>
+      </Section>
+    </div>
   );
 }
 
@@ -91,14 +509,6 @@ function InfoTooltip({ label, description }: { label: string; description: strin
     </span>
   );
 }
-
-const preStyle: CSSProperties = {
-  margin: 0,
-  overflow: "auto",
-  whiteSpace: "pre-wrap",
-  overflowWrap: "anywhere",
-  wordBreak: "break-word",
-};
 
 const metricMeta = {
   sequenceScore: {
@@ -219,252 +629,4 @@ function buildScoreWeights(result: EvaluationRunResult) {
     contentScore: undefined,
     tokenEfficiencyScore: undefined,
   };
-}
-
-export function RunResultView({ result }: { result: EvaluationRunResult }) {
-  const weights = buildScoreWeights(result);
-  const metrics = [
-    {
-      key: "sequenceScore",
-      score: result.score.breakdown.sequenceScore,
-      weight: weights.sequenceScore,
-      ...metricMeta.sequenceScore,
-    },
-    {
-      key: "resultScore",
-      score: result.score.breakdown.resultScore,
-      weight: weights.resultScore,
-      ...metricMeta.resultScore,
-    },
-    {
-      key: "conversationStateScore",
-      score: result.score.breakdown.conversationStateScore,
-      weight: weights.conversationStateScore,
-      ...metricMeta.conversationStateScore,
-    },
-    ...(result.score.breakdown.contentScore === undefined
-      ? []
-      : [
-          {
-            key: "contentScore",
-            score: result.score.breakdown.contentScore,
-            weight: weights.contentScore ?? 0,
-            ...metricMeta.contentScore,
-          },
-        ]),
-    ...(result.score.breakdown.tokenEfficiencyScore === undefined
-      ? []
-      : [
-          {
-            key: "tokenEfficiencyScore",
-            score: result.score.breakdown.tokenEfficiencyScore,
-            weight: weights.tokenEfficiencyScore ?? 0,
-            ...metricMeta.tokenEfficiencyScore,
-          },
-        ]),
-  ].map((metric) => {
-    const maxContribution = metric.weight;
-    const contribution = Math.round(((metric.score / 100) * metric.weight) * 100) / 100;
-    const lostContribution = Math.round((maxContribution - contribution) * 100) / 100;
-    const relatedFindings = result.score.findings.filter((finding) =>
-      findingAppliesToMetric(metric.key as MetricKey, finding.message, finding.code),
-    );
-
-    return {
-      ...metric,
-      contribution,
-      maxContribution,
-      lostContribution,
-      relatedFindings,
-    };
-  });
-  const formula = metrics.map((metric) => `${metric.label} ${metric.weight}% x ${metric.score}`).join(" + ");
-  const totalLost = Math.round((100 - result.score.totalScore) * 100) / 100;
-
-  return (
-    <div style={{ display: "grid", gap: 18 }}>
-      <Section title="Run Summary">
-        <div style={{ display: "grid", gap: 6 }}>
-          <div>
-            <strong>Run ID:</strong>{" "}
-            <Link href={`/runs/${result.runId}`}>{result.runId}</Link>
-          </div>
-          <div>
-            <strong>Status:</strong> {result.status}
-          </div>
-          <div>
-            <strong>Case:</strong> {result.testCaseId}
-          </div>
-          <div>
-            <strong>Total Score:</strong> {result.score.totalScore}
-          </div>
-          <div>
-            <strong>Created:</strong> {result.createdAt}
-          </div>
-          {result.runner.usage ? (
-            <div>
-              <strong>Token Usage:</strong> {result.runner.usage.totalTokens ?? "unknown"} total
-              {result.runner.usage.inputTokens !== undefined ? `, ${result.runner.usage.inputTokens} input` : ""}
-              {result.runner.usage.cachedInputTokens !== undefined
-                ? ` (${result.runner.usage.cachedInputTokens} cached)`
-                : ""}
-              {result.runner.usage.outputTokens !== undefined ? `, ${result.runner.usage.outputTokens} output` : ""}
-            </div>
-          ) : null}
-        </div>
-      </Section>
-
-      <Section title="Score Breakdown">
-        <div style={{ display: "grid", gap: 12 }}>
-          <div
-            style={{
-              padding: 12,
-              border: "1px solid #d6cab5",
-              background: "#faf7f0",
-            }}
-          >
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Weighted Formula</div>
-            <div title={`Total Score = ${formula}`}>{formula}</div>
-            <div style={{ marginTop: 6, color: "#5b5346" }}>
-              Total lost: {formatWeightedPoints(totalLost)} points
-            </div>
-          </div>
-          {metrics.map((metric) => (
-            <div
-              key={metric.key}
-              style={{
-                padding: "10px 12px",
-                border: "1px solid #d6cab5",
-                background: "#fffdf8",
-                display: "grid",
-                gap: 10,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <strong>{metric.label}</strong>
-                  <InfoTooltip label={metric.label} description={metric.description} />
-                </div>
-                <div>
-                  {metric.score} / 100
-                  {"  "}
-                  <span style={{ color: "#5b5346" }}>({metric.weight}% weight)</span>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 8,
-                }}
-              >
-                <div>
-                  <strong>Contribution:</strong> {formatWeightedPoints(metric.contribution)} /{" "}
-                  {formatWeightedPoints(metric.maxContribution)}
-                </div>
-                <div>
-                  <strong>Lost:</strong> {formatWeightedPoints(metric.lostContribution)} points
-                </div>
-              </div>
-
-              {metric.lostContribution > 0 ? (
-                <div
-                  style={{
-                    padding: 10,
-                    border: "1px solid #e0c7a2",
-                    background: "#fff6ea",
-                  }}
-                >
-                  <div style={{ fontWeight: 700, marginBottom: 6 }}>What went wrong</div>
-                  {metric.relatedFindings.length > 0 ? (
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {metric.relatedFindings.map((finding, index) => (
-                        <li key={`${metric.key}-${finding.code}-${index}`}>
-                          {summarizeFinding(finding.message)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div>No detailed finding was attached to this metric.</div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ color: "#46624a" }}>No points lost for this metric.</div>
-              )}
-            </div>
-          ))}
-        </div>
-        {result.score.findings.length > 0 ? (
-          <div style={{ marginTop: 12 }}>
-            <strong>Findings</strong>
-            <ul style={{ marginBottom: 0 }}>
-              {result.score.findings.map((finding, index) => (
-                <li key={`${finding.code}-${index}`}>
-                  [{finding.severity}] {finding.message}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p style={{ marginBottom: 0 }}>No findings.</p>
-        )}
-      </Section>
-
-      <Section title="Extracted Variables">
-        {Object.keys(result.variables).length === 0 ? (
-          <p style={{ margin: 0 }}>No extracted variables.</p>
-        ) : (
-          <pre style={preStyle}>
-            {JSON.stringify(result.variables, null, 2)}
-          </pre>
-        )}
-      </Section>
-
-      <Section title="Trace Timeline">
-        <div style={{ display: "grid", gap: 14 }}>
-          {result.trace.map((step) => (
-            <div
-              key={step.id}
-              style={{
-                border: "1px solid #d6cab5",
-                background: "#faf7f0",
-                padding: 14,
-              }}
-            >
-              <div style={{ marginBottom: 8 }}>
-                <strong>
-                  Step {step.stepIndex}: {step.appAlias} {step.request.method}{" "}
-                  {step.request.path}
-                </strong>
-              </div>
-              <div style={{ marginBottom: 8 }}>Status: {step.response.status}</div>
-              <div style={{ display: "grid", gap: 10 }}>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Request Body</div>
-                  <pre style={preStyle}>
-                    {renderBody(step.request.body)}
-                  </pre>
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Response Body</div>
-                  <pre style={preStyle}>
-                    {renderBody(step.response.body)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-    </div>
-  );
 }

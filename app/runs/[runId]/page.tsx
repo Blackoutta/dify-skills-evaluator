@@ -34,25 +34,37 @@ export default async function RunDetailPage({
       : null;
 
   return (
-    <main style={{ padding: 32, maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ marginBottom: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
+    <main className="page-shell">
+      <div style={{ marginBottom: 18, display: "flex", gap: 16, flexWrap: "wrap" }}>
         <Link
           href="/?tab=sessions"
-          style={{
-            color: "#f5f1e8",
-            background: "#1f1d18",
-            textDecoration: "none",
-            padding: "10px 14px",
-            border: "1px solid #1f1d18",
-          }}
+          className="button-secondary"
+          style={{ textDecoration: "none" }}
         >
           Back to Sessions
         </Link>
       </div>
-      <h1 style={{ marginBottom: 8 }}>Session Detail</h1>
-      <p style={{ marginTop: 0 }}>
-        Live logs and the final report for run <strong>{runId}</strong>.
-      </p>
+      <section className="page-hero">
+        <p className="page-kicker">Session Detail</p>
+        <div className="page-title-row">
+          <div>
+            <h1
+              className="page-title"
+              style={{ fontFamily: "var(--font-display), serif", maxWidth: "unset" }}
+            >
+              Review run {runId}
+            </h1>
+            <p className="page-copy">
+              Follow live logs while the session runs, then drop straight into a
+              structured report once scoring is complete.
+            </p>
+          </div>
+          <div className="page-note">
+            This page combines the operator view and evaluator report so you do
+            not need to jump between raw artifacts and summary UI.
+          </div>
+        </div>
+      </section>
       <RunDetailClient runId={runId} caseTitleById={caseTitleById} initialSession={initialSession} />
     </main>
   );
