@@ -184,7 +184,7 @@ Token efficiency is intentionally simple:
 
 - at or below `targetTotalTokens` yields full score
 - at or above `maxTotalTokens` yields zero
-- values in between decay nonlinearly
+- values in between use the squared share of remaining budget, so scores fall quickly once usage exceeds the target
 
 If usage exceeds the target or max, the scorer emits a `token_budget_exceeded` finding.
 

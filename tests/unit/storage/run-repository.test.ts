@@ -60,4 +60,15 @@ describe("run-repository", () => {
       "[2026-03-12T00:00:01.000Z] Run started",
     ]);
   });
+
+  it("deletes a persisted run directory", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "repo-"));
+    const repo = createRunRepository(root);
+
+    repo.appendProgressLog("run-1", "[2026-03-12T00:00:00.000Z] Run queued");
+
+    expect(repo.deleteRun("run-1")).toBe(true);
+    expect(repo.readRunResult("run-1")).toBeNull();
+    expect(fs.existsSync(path.join(root, "run-1"))).toBe(false);
+  });
 });

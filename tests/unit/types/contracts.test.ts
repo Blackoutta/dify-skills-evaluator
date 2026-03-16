@@ -19,6 +19,10 @@ describe("contracts", () => {
         targetTotalTokens: 1000,
         maxTotalTokens: 1500,
       },
+      scoreWeights: {
+        sequenceScore: 0.2,
+        resultScore: 0.4,
+      },
       expectedTrace: {
         steps: [
           {
@@ -34,6 +38,7 @@ describe("contracts", () => {
     });
 
     expect(result.id).toBe("case-1");
+    expect(result.scoreWeights?.resultScore).toBe(0.4);
   });
 
   it("rejects duplicate step ids", () => {
@@ -93,5 +98,52 @@ describe("contracts", () => {
         assertions: [{ id: "a", description: "desc", type: "minimum_trace_steps" }],
       }),
     ).toThrow(/tokenBudget.maxTotalTokens/);
+  });
+
+  it("rejects score weights with no positive values", () => {
+    expect(() =>
+      validateEvaluationTestCase({
+        id: "case-1",
+        title: "Case 1",
+        appType: "chatflow",
+        requiredApps: [{ appAlias: "chatbot", appType: "chatflow", purpose: "chat" }],
+        objective: "Test",
+        promptForAgent: "Run it",
+        maxTurns: 2,
+        scoreWeights: {
+          sequenceScore: 0,
+          resultScore: 0,
+        },
+        expectedTrace: {
+          steps: [
+            { stepId: "step-1", order: 1, appAlias: "chatbot", method: "POST", path: "/chat-messages" },
+          ],
+        },
+        assertions: [{ id: "a", description: "desc", type: "minimum_trace_steps" }],
+      }),
+    ).toThrow(/scoreWeights must include at least one value greater than 0/);
+  });
+
+  it("rejects negative score weights", () => {
+    expect(() =>
+      validateEvaluationTestCase({
+        id: "case-1",
+        title: "Case 1",
+        appType: "chatflow",
+        requiredApps: [{ appAlias: "chatbot", appType: "chatflow", purpose: "chat" }],
+        objective: "Test",
+        promptForAgent: "Run it",
+        maxTurns: 2,
+        scoreWeights: {
+          sequenceScore: -0.1,
+        },
+        expectedTrace: {
+          steps: [
+            { stepId: "step-1", order: 1, appAlias: "chatbot", method: "POST", path: "/chat-messages" },
+          ],
+        },
+        assertions: [{ id: "a", description: "desc", type: "minimum_trace_steps" }],
+      }),
+    ).toThrow(/scoreWeights.sequenceScore must be >= 0/);
   });
 });

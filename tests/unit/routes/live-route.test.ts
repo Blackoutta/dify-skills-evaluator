@@ -17,6 +17,7 @@ describe("live run route", () => {
       readRunResult: vi.fn().mockReturnValue({
         runId: "run-1",
         testCaseId: "case-1",
+        skillPath: "/tmp/skill-under-test",
         status: "completed",
         createdAt: "2026-03-12T00:00:00.000Z",
         runner: {
@@ -37,6 +38,7 @@ describe("live run route", () => {
     await expect(response.json()).resolves.toMatchObject({
       runId: "run-1",
       testCaseId: "case-1",
+      skillPath: "/tmp/skill-under-test",
       status: "completed",
       logs: ["[2026-03-12T00:00:00.000Z] Run queued", "[2026-03-12T00:00:01.000Z] Run started"],
     });

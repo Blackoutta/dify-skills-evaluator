@@ -10,6 +10,7 @@ describe("run-manager", () => {
     sessions.set("run-queued", {
       runId: "run-queued",
       testCaseId: "case-queued",
+      skillPath: "/tmp/skill-queued",
       status: "queued",
       createdAt: "2026-03-12T01:00:00.000Z",
       updatedAt: "2026-03-12T01:03:00.000Z",
@@ -18,6 +19,7 @@ describe("run-manager", () => {
     sessions.set("run-running", {
       runId: "run-running",
       testCaseId: "case-running",
+      skillPath: "/tmp/skill-running",
       status: "running",
       createdAt: "2026-03-12T01:01:00.000Z",
       updatedAt: "2026-03-12T01:04:00.000Z",
@@ -26,6 +28,7 @@ describe("run-manager", () => {
     sessions.set("run-completed", {
       runId: "run-completed",
       testCaseId: "case-completed",
+      skillPath: "/tmp/skill-completed",
       status: "completed",
       createdAt: "2026-03-12T01:02:00.000Z",
       updatedAt: "2026-03-12T01:05:00.000Z",
@@ -38,6 +41,7 @@ describe("run-manager", () => {
       {
         runId: "run-running",
         testCaseId: "case-running",
+        skillPath: "/tmp/skill-running",
         status: "running",
         createdAt: "2026-03-12T01:01:00.000Z",
         updatedAt: "2026-03-12T01:04:00.000Z",
@@ -45,6 +49,7 @@ describe("run-manager", () => {
       {
         runId: "run-queued",
         testCaseId: "case-queued",
+        skillPath: "/tmp/skill-queued",
         status: "queued",
         createdAt: "2026-03-12T01:00:00.000Z",
         updatedAt: "2026-03-12T01:03:00.000Z",

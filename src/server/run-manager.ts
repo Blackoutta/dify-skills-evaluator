@@ -7,6 +7,7 @@ export type RunSessionStatus = "queued" | "running" | "completed" | "failed" | "
 export interface RunSession {
   runId: string;
   testCaseId: string;
+  skillPath: string;
   status: RunSessionStatus;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +19,7 @@ export interface RunSession {
 export interface ActiveRunSessionSummary {
   runId: string;
   testCaseId: string;
+  skillPath: string;
   status: Extract<RunSessionStatus, "queued" | "running">;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +41,7 @@ export class RunManager {
     const session: RunSession = {
       runId,
       testCaseId: input.testCaseId,
+      skillPath: input.skillPath,
       status: "queued",
       createdAt,
       updatedAt: createdAt,
@@ -70,10 +73,23 @@ export class RunManager {
       .map((session) => ({
         runId: session.runId,
         testCaseId: session.testCaseId,
+        skillPath: session.skillPath,
         status: session.status,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
       }));
+  }
+
+  deleteFinishedSession(runId: string): boolean {
+    const session = this.sessions.get(runId);
+    if (!session) {
+      return false;
+    }
+    if (session.status === "queued" || session.status === "running") {
+      return false;
+    }
+    this.sessions.delete(runId);
+    return true;
   }
 
   private appendLog(runId: string, message: string) {

@@ -15,16 +15,20 @@ export default async function RunDetailPage({
   const session = getRunManager().get(runId);
   const repository = getRunRepository();
   const result = repository.readRunResult(runId);
-
+  const cases = getCaseRepository().listCases();
   const caseTitleById = Object.fromEntries(
-    getCaseRepository().listCases().map((testCase) => [testCase.id, testCase.title]),
+    cases.map((testCase) => [testCase.id, testCase.title]),
   );
+  const tokenBudget = cases.find((testCase) =>
+    testCase.id === (session?.testCaseId ?? result?.testCaseId)
+  )?.tokenBudget;
   const initialSession = session
     ? session
     : result
       ? {
           runId,
           testCaseId: result.testCaseId,
+          skillPath: result.skillPath,
           status: result.status,
           createdAt: result.createdAt,
           updatedAt: result.runner.endedAt,
@@ -65,7 +69,12 @@ export default async function RunDetailPage({
           </div>
         </div>
       </section>
-      <RunDetailClient runId={runId} caseTitleById={caseTitleById} initialSession={initialSession} />
+      <RunDetailClient
+        runId={runId}
+        caseTitleById={caseTitleById}
+        tokenBudget={tokenBudget}
+        initialSession={initialSession}
+      />
     </main>
   );
 }

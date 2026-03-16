@@ -19,6 +19,9 @@ const input: RunnerExecutionInput = {
   },
   env: {
     EVAL_RUN_ID: "run-1",
+    DIFY_API_KEY: "evaluator-proxy-token",
+    DIFY_BASE_URL: "http://localhost:3000/api/runs/run-1/apps/chatbot/proxy",
+    DIFY_USER: "eval-user",
     DIFY_APP_USER: "eval-user",
     DIFY_APP_BASE_URL_CHATBOT: "http://localhost:3000/api/runs/run-1/apps/chatbot/proxy",
   },
@@ -31,6 +34,8 @@ describe("codex-runner", () => {
   it("builds a prompt with aliases and artifacts", () => {
     const prompt = buildCodexPrompt(input);
     expect(prompt).toContain("/tmp/skill");
+    expect(prompt).toContain("Only use that exact skill path for this run.");
+    expect(prompt).toContain("prefer those over inventing alternate transport or auth setup");
     expect(prompt).toContain("/tmp/workspace");
     expect(prompt).toContain("chatbot");
     expect(prompt).toContain("/tmp/file.pdf");

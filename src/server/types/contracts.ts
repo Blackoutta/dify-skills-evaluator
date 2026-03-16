@@ -76,6 +76,7 @@ export interface EvaluationTestCase {
   promptForAgent: string;
   maxTurns: number;
   tokenBudget?: TokenBudget;
+  scoreWeights?: ScoreWeights;
   artifacts?: TestArtifact[];
   expectedTrace: ExpectedTraceSpec;
   assertions: EvaluationAssertion[];
@@ -85,6 +86,14 @@ export interface EvaluationTestCase {
 export interface TokenBudget {
   targetTotalTokens: number;
   maxTotalTokens?: number;
+}
+
+export interface ScoreWeights {
+  sequenceScore?: number;
+  resultScore?: number;
+  conversationStateScore?: number;
+  contentScore?: number;
+  tokenEfficiencyScore?: number;
 }
 
 export interface TargetAppBinding {
@@ -217,6 +226,7 @@ export interface ScoreResult {
 export interface EvaluationRunResult {
   runId: string;
   status: "completed" | "failed" | "timed_out";
+  skillPath: string;
   testCaseId: string;
   requiredApps: RequiredAppSpec[];
   artifacts?: TestArtifact[];
@@ -225,6 +235,17 @@ export interface EvaluationRunResult {
   score: ScoreResult;
   variables: Record<string, string>;
   createdAt: string;
+}
+
+export interface SessionListEntry {
+  runId: string;
+  testCaseId: string;
+  skillPath: string;
+  status: "queued" | "running" | "completed" | "failed" | "timed_out";
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+  result?: EvaluationRunResult;
 }
 
 export interface EvaluationRuntimeConfig {
@@ -250,6 +271,14 @@ const FIELD_RULES = new Set<FieldRule["rule"]>([
   "contains_variable",
   "matches_regex",
 ]);
+
+const SCORE_WEIGHT_KEYS = [
+  "sequenceScore",
+  "resultScore",
+  "conversationStateScore",
+  "contentScore",
+  "tokenEfficiencyScore",
+] as const satisfies readonly (keyof ScoreWeights)[];
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -332,6 +361,24 @@ export function validateEvaluationTestCase(value: unknown): EvaluationTestCase {
         "tokenBudget.maxTotalTokens must be >= tokenBudget.targetTotalTokens",
       );
     }
+  }
+
+  if (value.scoreWeights !== undefined) {
+    assert(isRecord(value.scoreWeights), "scoreWeights must be an object");
+
+    let hasPositiveWeight = false;
+    for (const key of SCORE_WEIGHT_KEYS) {
+      const weight = value.scoreWeights[key];
+      if (weight === undefined) {
+        continue;
+      }
+
+      assert(typeof weight === "number" && Number.isFinite(weight), `scoreWeights.${key} must be a finite number`);
+      assert(weight >= 0, `scoreWeights.${key} must be >= 0`);
+      hasPositiveWeight = hasPositiveWeight || weight > 0;
+    }
+
+    assert(hasPositiveWeight, "scoreWeights must include at least one value greater than 0");
   }
 
   return value as unknown as EvaluationTestCase;

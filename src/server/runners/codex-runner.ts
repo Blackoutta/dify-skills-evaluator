@@ -36,6 +36,9 @@ export function buildCodexPrompt(input: RunnerExecutionInput): string {
   return [
     `Test case: ${input.testCase.id}`,
     `Use the skill at: ${input.skillPath}`,
+    `Only use that exact skill path for this run. Do not inspect, compare, load, or rely on any other skill or skill-like instructions from elsewhere in the workspace or filesystem.`,
+    "Use the evaluator-provided Dify CLI environment when the selected skill is CLI-based.",
+    "If DIFY_BASE_URL, DIFY_API_KEY, and DIFY_USER are present, prefer those over inventing alternate transport or auth setup.",
     `Workspace root: ${input.workspaceRoot}`,
     `Run directory: ${input.workingDirectory}`,
     input.testCase.promptForAgent,

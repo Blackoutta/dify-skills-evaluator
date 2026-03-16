@@ -67,15 +67,6 @@ workflow:
   graph:
     edges:
     - data:
-        sourceType: llm
-        targetType: answer
-      id: llm-answer
-      source: llm
-      sourceHandle: source
-      target: answer
-      targetHandle: target
-      type: custom
-    - data:
         isInIteration: false
         isInLoop: false
         sourceType: start
@@ -131,6 +122,17 @@ workflow:
       targetHandle: target
       type: custom
       zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm-source-17736378239510-target
+      source: llm
+      sourceHandle: source
+      target: '17736378239510'
+      targetHandle: target
+      type: custom
+      zIndex: 0
     nodes:
     - data:
         selected: false
@@ -168,7 +170,7 @@ workflow:
           completion_params:
             temperature: 0.7
           mode: chat
-          name: openai/gpt-5.1
+          name: deepseek/deepseek-chat-v3.1
           provider: langgenius/openrouter/openrouter
         prompt_template:
         - id: 8e0f30b4-943a-47d6-9602-e0a4b029d6e3
@@ -183,17 +185,17 @@ workflow:
       id: llm
       position:
         x: 1362.1695513263908
-        y: 238.40267193110415
+        y: 246.83672768171047
       positionAbsolute:
         x: 1362.1695513263908
-        y: 238.40267193110415
-      selected: false
+        y: 246.83672768171047
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 242
     - data:
-        answer: '{{#llm.text#}}'
+        answer: /{{#17732214687830.text#}}
         selected: false
         title: 直接回复
         type: answer
@@ -201,11 +203,11 @@ workflow:
       height: 103
       id: answer
       position:
-        x: 1835.994045625319
-        y: 101
+        x: 1821.9372860409749
+        y: -3.490746698872343
       positionAbsolute:
-        x: 1835.994045625319
-        y: 101
+        x: 1821.9372860409749
+        y: -3.490746698872343
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -286,7 +288,7 @@ workflow:
           completion_params:
             temperature: 0.7
           mode: chat
-          name: openai/gpt-5.1
+          name: deepseek/deepseek-chat-v3.1
           provider: langgenius/openrouter/openrouter
         prompt_template:
         - id: 8e0f30b4-943a-47d6-9602-e0a4b029d6e3
@@ -305,13 +307,32 @@ workflow:
       positionAbsolute:
         x: 1362.1695513263908
         y: 48.73313954336743
-      selected: true
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        answer: '{{#llm.text#}}'
+        selected: false
+        title: 直接回复 (1)
+        type: answer
+        variables: []
+      height: 103
+      id: '17736378239510'
+      position:
+        x: 1835.994045625319
+        y: 277.60516030066026
+      positionAbsolute:
+        x: 1835.994045625319
+        y: 277.60516030066026
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 242
     viewport:
-      x: -126.93450340372635
-      y: 239.31744832602564
-      zoom: 0.5336626690199815
+      x: -1049.9352646670618
+      y: 408.9865801295987
+      zoom: 0.7709642897014596
   rag_pipeline_variables: []

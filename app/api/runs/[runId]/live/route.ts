@@ -22,6 +22,7 @@ export async function GET(
   return NextResponse.json({
     runId,
     testCaseId: result.testCaseId,
+    skillPath: result.skillPath,
     status: result.status,
     createdAt: result.createdAt,
     updatedAt: result.runner.endedAt,

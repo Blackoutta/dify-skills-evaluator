@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { EvaluationRunResult } from "@/src/server/types/contracts";
+import type { EvaluationRunResult, TokenBudget } from "@/src/server/types/contracts";
 
 import { RunResultView } from "@/app/components/run-result-view";
+import { TimestampText } from "@/app/components/timestamp-text";
 
 interface RunSessionView {
   runId: string;
   testCaseId: string;
+  skillPath: string;
   status: "queued" | "running" | "completed" | "failed" | "timed_out";
   createdAt: string;
   updatedAt: string;
@@ -24,10 +26,12 @@ function isLiveSessionStatus(status: RunSessionView["status"]): boolean {
 export function RunDetailClient({
   runId,
   caseTitleById,
+  tokenBudget,
   initialSession,
 }: {
   runId: string;
   caseTitleById: Record<string, string>;
+  tokenBudget?: TokenBudget;
   initialSession: RunSessionView | null;
 }) {
   const [session, setSession] = useState<RunSessionView | null>(initialSession);
@@ -182,11 +186,11 @@ export function RunDetailClient({
             </div>
             <div className="detail-item">
               <dt>Created</dt>
-              <dd>{new Date(session.createdAt).toLocaleString()}</dd>
+              <dd><TimestampText value={session.createdAt} /></dd>
             </div>
             <div className="detail-item">
               <dt>Last update</dt>
-              <dd>{new Date(session.updatedAt).toLocaleString()}</dd>
+              <dd><TimestampText value={session.updatedAt} /></dd>
             </div>
           </dl>
         </div>
@@ -255,7 +259,7 @@ export function RunDetailClient({
               Summary first, details on demand, raw evidence when you need it.
             </p>
           </div>
-          <RunResultView result={session.result} />
+          <RunResultView result={session.result} tokenBudget={tokenBudget} />
         </section>
       ) : null}
     </div>

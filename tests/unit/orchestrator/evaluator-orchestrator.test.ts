@@ -116,6 +116,8 @@ describe("evaluator-orchestrator", () => {
     });
 
     expect(result.runId).toBe("run-1");
+    expect(result.skillPath).toBe("/tmp/skill");
+    expect(repo.readRunResult("run-1")?.skillPath).toBe("/tmp/skill");
     expect(repo.readRunResult("run-1")?.score.totalScore).toBeGreaterThanOrEqual(0);
     expect(result.runner.usage?.totalTokens).toBe(900);
     expect(result.score.breakdown.tokenEfficiencyScore).toBe(100);
@@ -212,6 +214,14 @@ describe("evaluator-orchestrator", () => {
     expect(capturedEnv?.NO_PROXY).toContain("localhost");
     expect(capturedEnv?.NO_PROXY).toContain("127.0.0.1");
     expect(capturedEnv?.no_proxy).toBe(capturedEnv?.NO_PROXY);
+    expect(capturedEnv?.DIFY_BASE_URL).toBe(
+      "http://127.0.0.1:3000/api/runs/run-1/apps/chatbot/proxy",
+    );
+    expect(capturedEnv?.DIFY_API_KEY).toBe("evaluator-proxy-token");
+    expect(capturedEnv?.DIFY_USER).toBe("eval-user");
+    expect(capturedEnv?.DIFY_APP_BASE_URL_CHATBOT).toBe(
+      "http://127.0.0.1:3000/api/runs/run-1/apps/chatbot/proxy",
+    );
     expect(capturedWorkspaceRoot).toBe(process.cwd());
   });
 });

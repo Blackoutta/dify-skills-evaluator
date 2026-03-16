@@ -13,8 +13,14 @@
   "promptForAgent": "Use the available Dify curl-based skill to call the app alias 'chatbot'. First, send a short greeting to start a new conversation. Then send one follow-up question in the same conversation. Do not create a second independent conversation. Use blocking mode.",
   "maxTurns": 2,
   "tokenBudget": {
-    "targetTotalTokens": 100000,
-    "maxTotalTokens": 500000
+    "targetTotalTokens": 80000,
+    "maxTotalTokens": 300000
+  },
+  "scoreWeights": {
+    "sequenceScore": 0.3,
+    "resultScore": 0.2,
+    "conversationStateScore": 0.1,
+    "tokenEfficiencyScore": 0.4
   },
   "expectedTrace": {
     "steps": [

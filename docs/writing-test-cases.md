@@ -33,6 +33,7 @@ Important fields:
 - `promptForAgent`: the instruction the runner will pass to the skill agent
 - `maxTurns`: expected interaction depth
 - `tokenBudget`: optional token target and max budget
+- `scoreWeights`: optional per-case scoring weights
 - `artifacts`: optional local test files
 - `expectedTrace`: ordered HTTP steps that should appear in the captured trace
 - `assertions`: evaluation checks that summarize what matters for scoring
@@ -83,6 +84,39 @@ Choose aliases that are stable and descriptive. The alias is what appears in:
 - score matching logic
 
 Changing an alias later usually means updating the prompt, bindings, and trace expectations together.
+
+## Score Weights
+
+`scoreWeights` is optional. If omitted, the scorer uses the built-in defaults.
+
+Supported keys:
+
+- `sequenceScore`
+- `resultScore`
+- `conversationStateScore`
+- `contentScore`
+- `tokenEfficiencyScore`
+
+Each value must be a finite number greater than or equal to `0`, and at least one provided weight must be greater than `0`.
+
+Example:
+
+```json
+"scoreWeights": {
+  "sequenceScore": 0.2,
+  "resultScore": 0.4,
+  "conversationStateScore": 0.2,
+  "contentScore": 0.2,
+  "tokenEfficiencyScore": 0
+}
+```
+
+Notes:
+
+- you only need to specify the weights you want to override
+- unspecified weights fall back to the global defaults
+- weights are normalized across the score components that are actually present for the run
+- if a case has no content checks, `contentScore` is omitted and its configured weight is redistributed across the remaining active components
 
 ## Prompting The Agent
 
@@ -184,6 +218,8 @@ It supports:
 - `maxTotalTokens`: the threshold where token efficiency should bottom out
 
 If the runner returns usage, the scorer uses this budget to compute `tokenEfficiencyScore` and emit findings when usage exceeds the target or max.
+
+Scoring is forgiving up to `targetTotalTokens`, then drops with the square of the remaining budget share until it reaches zero at `maxTotalTokens`.
 
 Set budgets high enough to allow the intended workflow, but low enough to catch wasteful prompting or loops.
 

@@ -17,6 +17,7 @@ export interface RunRepository {
   writeVariables(runId: string, variables: Record<string, string>): string;
   writeRunResult(runId: string, result: EvaluationRunResult): string;
   appendRunnerLog(runId: string, fileName: "runner-output.log" | "runner-error.log", content: string): string;
+  deleteRun(runId: string): boolean;
   listRuns(): EvaluationRunResult[];
   readRunResult(runId: string): EvaluationRunResult | null;
 }
@@ -83,6 +84,14 @@ export function createRunRepository(rootDir: string = DEFAULT_ROOT): RunReposito
       const filePath = path.join(this.ensureRunDir(runId), fileName);
       fs.appendFileSync(filePath, content, "utf8");
       return filePath;
+    },
+    deleteRun(runId) {
+      const runDir = path.join(rootDir, runId);
+      if (!fs.existsSync(runDir)) {
+        return false;
+      }
+      fs.rmSync(runDir, { recursive: true, force: true });
+      return true;
     },
     listRuns() {
       ensureRoot();

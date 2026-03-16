@@ -13,8 +13,15 @@
   "promptForAgent": "Use the available Dify curl-based skill to call the app alias 'chatbot'. First upload the provided local file artifact 'source_doc'. Then send one blocking chat message that attaches the uploaded file by upload_file_id and asks what is written in the file. Do not instruct the app to repeat a target phrase directly.",
   "maxTurns": 2,
   "tokenBudget": {
-    "targetTotalTokens": 100000,
-    "maxTotalTokens": 500000
+    "targetTotalTokens": 80000,
+    "maxTotalTokens": 300000
+  },
+  "scoreWeights": {
+    "sequenceScore": 0.3,
+    "resultScore": 0.1,
+    "conversationStateScore": 0.1,
+    "contentScore": 0.1,
+    "tokenEfficiencyScore": 0.4
   },
   "artifacts": [
     {
@@ -55,7 +62,6 @@
         "path": "/chat-messages",
         "requestRules": [
           { "path": "json.response_mode", "rule": "equals", "value": "blocking" },
-          { "path": "json.query", "rule": "contains", "value": "written in the file" },
           { "path": "json.conversation_id", "rule": "empty" },
           { "path": "json.user", "rule": "non_empty" },
           { "path": "json.files[0].type", "rule": "equals", "value": "document" },

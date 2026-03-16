@@ -25,6 +25,8 @@ export interface EvaluatorOrchestratorDeps {
   idFactory?: () => string;
 }
 
+const EVALUATOR_PROXY_API_KEY = "evaluator-proxy-token";
+
 export class EvaluatorOrchestrator {
   private readonly now: () => Date;
   private readonly idFactory: () => string;
@@ -103,6 +105,7 @@ export class EvaluatorOrchestrator {
     const result: EvaluationRunResult = {
       runId,
       status: runner.status,
+      skillPath: parsed.skillPath,
       testCaseId: testCase.id,
       requiredApps: testCase.requiredApps,
       artifacts: testCase.artifacts,
@@ -120,16 +123,23 @@ export class EvaluatorOrchestrator {
 
   private buildRunnerEnv(runId: string, input: StartEvaluationInput): Record<string, string> {
     const noProxyHosts = mergeNoProxyHosts(process.env.NO_PROXY, process.env.no_proxy);
+    const defaultUser = input.defaultUser ?? "eval-user";
     const env: Record<string, string> = {
       EVAL_RUN_ID: runId,
-      DIFY_APP_USER: input.defaultUser ?? "eval-user",
+      DIFY_USER: defaultUser,
+      DIFY_API_KEY: EVALUATOR_PROXY_API_KEY,
+      DIFY_APP_USER: defaultUser,
       NO_PROXY: noProxyHosts,
       no_proxy: noProxyHosts,
     };
 
     for (const binding of input.appBindings) {
-      env[`DIFY_APP_BASE_URL_${binding.appAlias.toUpperCase()}`] =
-        `http://127.0.0.1:${this.deps.config.proxyPort}/api/runs/${runId}/apps/${binding.appAlias}/proxy`;
+      const proxyBaseUrl = `http://127.0.0.1:${this.deps.config.proxyPort}/api/runs/${runId}/apps/${binding.appAlias}/proxy`;
+      env[`DIFY_APP_BASE_URL_${binding.appAlias.toUpperCase()}`] = proxyBaseUrl;
+
+      if (input.appBindings.length === 1) {
+        env.DIFY_BASE_URL = proxyBaseUrl;
+      }
     }
 
     return env;

@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   EvaluationRunResult,
   EvaluationTestCase,
+  SessionListEntry,
   StartEvaluationInput,
   TargetAppBinding,
 } from "@/src/server/types/contracts";
+import { TimestampText } from "@/app/components/timestamp-text";
 
 interface BindingFormState {
   appAlias: string;
@@ -20,29 +23,12 @@ interface BindingFormState {
 interface RunSessionView {
   runId: string;
   testCaseId: string;
+  skillPath: string;
   status: "queued" | "running" | "completed" | "failed" | "timed_out";
   createdAt: string;
   updatedAt: string;
   logs: string[];
   error?: string;
-  result?: EvaluationRunResult;
-}
-
-interface ActiveRunSessionSummary {
-  runId: string;
-  testCaseId: string;
-  status: "queued" | "running";
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SessionListItem {
-  runId: string;
-  testCaseId: string;
-  status: RunSessionView["status"];
-  createdAt: string;
-  updatedAt: string;
-  isActive: boolean;
   result?: EvaluationRunResult;
 }
 
@@ -109,8 +95,36 @@ function getStatusStyles(status: RunSessionView["status"]) {
   }
 }
 
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString();
+function sessionEntryFromResult(run: EvaluationRunResult): SessionListEntry {
+  return {
+    runId: run.runId,
+    testCaseId: run.testCaseId,
+    skillPath: run.skillPath,
+    status: run.status,
+    createdAt: run.createdAt,
+    updatedAt: run.runner.endedAt,
+    isActive: false,
+    result: run,
+  };
+}
+
+function sessionEntryFromLiveSession(session: RunSessionView): SessionListEntry {
+  return {
+    runId: session.runId,
+    testCaseId: session.testCaseId,
+    skillPath: session.skillPath,
+    status: session.status,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    isActive: isLiveSessionStatus(session.status),
+    result: session.result,
+  };
+}
+
+function upsertSessionEntry(current: SessionListEntry[], entry: SessionListEntry): SessionListEntry[] {
+  return [entry, ...current.filter((session) => session.runId !== entry.runId)].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
 }
 
 function bindingStateFromCase(testCase: EvaluationTestCase, defaultUser: string): BindingFormState[] {
@@ -147,6 +161,7 @@ export function RunConsole({
   cases: EvaluationTestCase[];
   initialRuns: EvaluationRunResult[];
 }) {
+  const router = useRouter();
   const [selectedRunner, setSelectedRunner] = useState<StartEvaluationInput["runnerKind"]>("codex");
   const [selectedCaseId, setSelectedCaseId] = useState(cases[0]?.id ?? "");
   const [skillPath, setSkillPath] = useState("");
@@ -155,17 +170,22 @@ export function RunConsole({
   const [bindingsByCaseId, setBindingsByCaseId] = useState<Record<string, BindingFormState[]>>(
     cases[0] ? { [cases[0].id]: bindingStateFromCase(cases[0], "eval-user-001") } : {},
   );
-  const [runs, setRuns] = useState(initialRuns);
+  const [sessionItems, setSessionItems] = useState<SessionListEntry[]>(
+    initialRuns.map(sessionEntryFromResult),
+  );
   const [activeSession, setActiveSession] = useState<RunSessionView | null>(null);
-  const [recoverableSessions, setRecoverableSessions] = useState<ActiveRunSessionSummary[]>([]);
   const [lastViewedRunId, setLastViewedRunId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [actionMenuRunId, setActionMenuRunId] = useState<string | null>(null);
   const [submittingCaseIds, setSubmittingCaseIds] = useState<Record<string, boolean>>({});
+  const [deletingRunIds, setDeletingRunIds] = useState<Record<string, boolean>>({});
   const [cooldownDeadlineByCaseId, setCooldownDeadlineByCaseId] = useState<Record<string, number>>({});
   const [cooldownNow, setCooldownNow] = useState(() => Date.now());
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["id"]>("run");
   const [hasLoadedPersistedState, setHasLoadedPersistedState] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCase = cases.find((item) => item.id === selectedCaseId) ?? cases[0];
   const bindingState = selectedCase
@@ -177,31 +197,7 @@ export function RunConsole({
     (cooldownDeadlineByCaseId[selectedCaseId] ?? 0) - cooldownNow,
   );
   const isSelectedCaseSubmitting = submittingCaseIds[selectedCaseId] ?? false;
-  const activeRunIds = new Set(recoverableSessions.map((session) => session.runId));
-  const orderedSessionItems: SessionListItem[] = [
-    ...recoverableSessions.map((session) => ({
-      runId: session.runId,
-      testCaseId: session.testCaseId,
-      status: session.status,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      sortTime: session.updatedAt,
-      isActive: true,
-    })),
-    ...runs
-      .filter((run) => !activeRunIds.has(run.runId))
-      .map((run) => ({
-        runId: run.runId,
-        testCaseId: run.testCaseId,
-        status: run.status,
-        createdAt: run.createdAt,
-        updatedAt: run.runner.endedAt,
-        isActive: false,
-        result: run,
-      })),
-  ].sort((a, b) => {
-    return b.createdAt.localeCompare(a.createdAt);
-  });
+  const activeRunCount = sessionItems.filter((session) => session.isActive).length;
 
   useEffect(() => {
     if (typeof window === "undefined" || cases.length === 0) return;
@@ -300,34 +296,38 @@ export function RunConsole({
   ]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !hasLoadedPersistedState) return;
+    if (typeof window === "undefined" || !hasLoadedPersistedState || activeTab !== "sessions") return;
 
     let cancelled = false;
 
-    async function loadRecoverableSessions() {
+    async function loadSessionItems() {
       try {
-        const response = await fetch("/api/runs/active", {
+        const response = await fetch("/api/runs/sessions", {
           cache: "no-store",
         });
         if (!response.ok) {
-          throw new Error("Failed to load active runs");
+          throw new Error("Failed to load sessions");
         }
-        const data = (await response.json()) as ActiveRunSessionSummary[];
+        const data = (await response.json()) as SessionListEntry[];
         if (cancelled) return;
-        setRecoverableSessions(data);
+        setSessionItems(data);
         setRecoveryError(null);
       } catch (loadError) {
         if (cancelled) return;
-        setRecoveryError(loadError instanceof Error ? loadError.message : "Failed to load active runs");
+        setRecoveryError(loadError instanceof Error ? loadError.message : "Failed to load sessions");
       }
     }
 
-    void loadRecoverableSessions();
+    void loadSessionItems();
+    const timer = window.setInterval(() => {
+      void loadSessionItems();
+    }, 2000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [hasLoadedPersistedState]);
+  }, [activeTab, hasLoadedPersistedState]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -344,6 +344,30 @@ export function RunConsole({
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!actionMenuRunId) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!actionMenuRef.current?.contains(event.target as Node)) {
+        setActionMenuRunId(null);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActionMenuRunId(null);
+      }
+    }
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [actionMenuRunId]);
+
   function updateBinding(appAlias: string, key: keyof BindingFormState, value: string) {
     if (!selectedCase) return;
 
@@ -354,6 +378,45 @@ export function RunConsole({
           binding.appAlias === appAlias ? { ...binding, [key]: value } : binding,
       ),
     }));
+  }
+
+  async function handleDeleteFinishedSession(runId: string) {
+    if (deletingRunIds[runId]) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this session? This removes its run artifacts from the local evaluator.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteError(null);
+    setDeletingRunIds((current) => ({ ...current, [runId]: true }));
+    try {
+      const response = await fetch(`/api/runs/${runId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Failed to delete session");
+      }
+      setSessionItems((current) => current.filter((session) => session.runId !== runId));
+      setLastViewedRunId((current) => (current === runId ? "" : current));
+      setActiveSession((current) => (current?.runId === runId ? null : current));
+      setActionMenuRunId((current) => (current === runId ? null : current));
+    } catch (deleteRunError) {
+      setDeleteError(
+        deleteRunError instanceof Error ? deleteRunError.message : "Failed to delete session",
+      );
+    } finally {
+      setDeletingRunIds((current) => {
+        const next = { ...current };
+        delete next[runId];
+        return next;
+      });
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -405,16 +468,7 @@ export function RunConsole({
         ...current,
         [submittingCaseId]: Date.now() + RESTART_COOLDOWN_MS,
       }));
-      setRecoverableSessions((current) => [
-        {
-          runId: data.runId,
-          testCaseId: data.testCaseId,
-          status: data.status === "queued" ? "queued" : "running",
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        },
-        ...current.filter((session) => session.runId !== data.runId),
-      ]);
+      setSessionItems((current) => upsertSessionEntry(current, sessionEntryFromLiveSession(data)));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unknown error");
     } finally {
@@ -425,69 +479,6 @@ export function RunConsole({
       });
     }
   }
-
-  useEffect(() => {
-    if (!activeSession || !["queued", "running"].includes(activeSession.status)) {
-      return;
-    }
-
-    const timer = window.setInterval(async () => {
-      const response = await fetch(`/api/runs/${activeSession.runId}/live`, {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        if (response.status === 404) {
-          const fallbackResponse = await fetch(`/api/runs/${activeSession.runId}`, {
-            cache: "no-store",
-          });
-          if (fallbackResponse.ok) {
-            const result = (await fallbackResponse.json()) as EvaluationRunResult;
-            setRuns((current) => [
-              result,
-              ...current.filter((item) => item.runId !== result.runId),
-            ]);
-            setActiveSession((current) =>
-              current
-                ? {
-                    ...current,
-                    testCaseId: result.testCaseId,
-                    status: result.status,
-                    result,
-                  }
-                : current,
-            );
-            window.clearInterval(timer);
-          }
-        }
-        return;
-      }
-      const session = (await response.json()) as RunSessionView;
-      setActiveSession(session);
-      setLastViewedRunId(session.runId);
-      if (session.result) {
-        setRuns((current) => [session.result!, ...current.filter((item) => item.runId !== session.result!.runId)]);
-      }
-      setRecoverableSessions((current) =>
-        ["queued", "running"].includes(session.status)
-          ? [
-              {
-                runId: session.runId,
-                testCaseId: session.testCaseId,
-                status: session.status as "queued" | "running",
-                createdAt: session.createdAt,
-                updatedAt: session.updatedAt,
-              },
-              ...current.filter((item) => item.runId !== session.runId),
-            ]
-          : current.filter((item) => item.runId !== session.runId),
-      );
-      if (!["queued", "running"].includes(session.status)) {
-        window.clearInterval(timer);
-      }
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [activeSession?.runId, activeSession?.status]);
 
   return (
     <div className="workspace-grid">
@@ -545,11 +536,11 @@ export function RunConsole({
               </div>
               <div className="summary-cell">
                 <span className="summary-label">Saved sessions</span>
-                <div className="summary-value">{orderedSessionItems.length}</div>
+                <div className="summary-value">{sessionItems.length}</div>
               </div>
               <div className="summary-cell">
                 <span className="summary-label">Active runs</span>
-                <div className="summary-value">{recoverableSessions.length}</div>
+                <div className="summary-value">{activeRunCount}</div>
               </div>
             </div>
 
@@ -803,7 +794,8 @@ export function RunConsole({
                         {caseTitleById[activeSession.testCaseId] ??
                           activeSession.testCaseId}
                       </strong>{" "}
-                      is currently <strong>{activeSession.status}</strong>.
+                      has started. Open the sessions view to follow status
+                      updates, or open the detail page for live logs.
                     </p>
                   </div>
                   <button
@@ -811,7 +803,7 @@ export function RunConsole({
                     className="button-secondary"
                     onClick={() => setActiveTab("sessions")}
                   >
-                    Open live session
+                    Open sessions
                   </button>
                 </div>
               </section>
@@ -837,33 +829,98 @@ export function RunConsole({
               {recoveryError ? (
                 <div className="alert alert-danger">{recoveryError}</div>
               ) : null}
+              {deleteError ? (
+                <div className="alert alert-danger">{deleteError}</div>
+              ) : null}
 
-              {orderedSessionItems.length > 0 ? (
+              {sessionItems.length > 0 ? (
                 <div className="session-list">
-                  {orderedSessionItems.map((session) => {
+                  {sessionItems.map((session) => {
                     const isSelected = activeSession?.runId === session.runId;
                     const isLastViewed = session.runId === lastViewedRunId;
                     const statusStyles = getStatusStyles(session.status);
+                    const isDeleting = deletingRunIds[session.runId] ?? false;
+                    const isActionMenuOpen = actionMenuRunId === session.runId;
 
                     return (
-                      <Link
+                      <article
                         key={session.runId}
-                        href={`/runs/${session.runId}`}
-                        onClick={() => setLastViewedRunId(session.runId)}
-                        className="session-link"
+                        className="session-card"
+                        style={{
+                          borderColor: isLastViewed
+                            ? "#201b14"
+                            : "rgba(32, 27, 20, 0.12)",
+                          borderWidth: isLastViewed ? 2 : 1,
+                          background: isSelected
+                            ? "#f1e5d2"
+                            : "rgba(255,252,246,0.76)",
+                          display: "grid",
+                          gap: 16,
+                          position: "relative",
+                          cursor: session.isActive ? "default" : "pointer",
+                        }}
+                        onClick={() => {
+                          if (!session.isActive) {
+                            setActionMenuRunId((current) => current === session.runId ? null : session.runId);
+                          }
+                        }}
                       >
-                        <article
-                          className="session-card"
-                          style={{
-                            borderColor: isLastViewed
-                              ? "#201b14"
-                              : "rgba(32, 27, 20, 0.12)",
-                            borderWidth: isLastViewed ? 2 : 1,
-                            background: isSelected
-                              ? "#f1e5d2"
-                              : "rgba(255,252,246,0.76)",
-                          }}
-                        >
+                        {session.isActive ? (
+                          <Link
+                            href={`/runs/${session.runId}`}
+                            onClick={() => setLastViewedRunId(session.runId)}
+                            className="session-link"
+                          >
+                            <div className="binding-header">
+                              <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+                                <div>
+                                  <div className="summary-label">Run ID</div>
+                                  <div
+                                    style={{
+                                      fontFamily: "var(--font-mono), monospace",
+                                      fontSize: "0.95rem",
+                                    }}
+                                  >
+                                    {session.runId}
+                                  </div>
+                                </div>
+                                <div>
+                                  <h3 className="session-title" style={{ marginBottom: 4 }}>
+                                    {caseTitleById[session.testCaseId] ?? session.testCaseId}
+                                  </h3>
+                                  <div className="muted">Live logs available now</div>
+                                  <div
+                                    className="muted"
+                                    style={{
+                                      marginTop: 8,
+                                      fontFamily: "var(--font-mono), monospace",
+                                      fontSize: 12,
+                                      overflowWrap: "anywhere",
+                                    }}
+                                  >
+                                    Skill: {session.skillPath}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="session-meta">
+                                <span
+                                  className="status-badge"
+                                  style={{
+                                    borderColor: statusStyles.borderColor,
+                                    background: statusStyles.background,
+                                    color: statusStyles.color,
+                                  }}
+                                >
+                                  {session.status.replace("_", " ")}
+                                </span>
+                                <div>Created: <TimestampText value={session.createdAt} /></div>
+                                <div>Updated: <TimestampText value={session.updatedAt} /></div>
+                                <div>{isLastViewed ? "Last viewed" : "Open live logs"}</div>
+                              </div>
+                            </div>
+                          </Link>
+                        ) : (
                           <div className="binding-header">
                             <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                               <div>
@@ -887,6 +944,17 @@ export function RunConsole({
                                     ? "Live logs available now"
                                     : "Completed report ready to inspect"}
                                 </div>
+                                <div
+                                  className="muted"
+                                  style={{
+                                    marginTop: 8,
+                                    fontFamily: "var(--font-mono), monospace",
+                                    fontSize: 12,
+                                    overflowWrap: "anywhere",
+                                  }}
+                                >
+                                  Skill: {session.skillPath}
+                                </div>
                               </div>
                               {!session.isActive && session.result ? (
                                 <div className="score-chip">
@@ -906,22 +974,45 @@ export function RunConsole({
                               >
                                 {session.status.replace("_", " ")}
                               </span>
-                              <div>Created: {formatDateTime(session.createdAt)}</div>
+                              <div>Created: <TimestampText value={session.createdAt} /></div>
                               <div>
                                 {session.isActive ? "Updated" : "Finished"}:{" "}
-                                {formatDateTime(session.updatedAt)}
+                                <TimestampText value={session.updatedAt} />
                               </div>
                               <div>
-                                {isLastViewed
-                                  ? "Last viewed"
-                                  : session.isActive
-                                    ? "Open live logs"
-                                    : "Open report"}
+                                {isLastViewed ? "Last viewed" : "Click for actions"}
                               </div>
                             </div>
                           </div>
-                        </article>
-                      </Link>
+                        )}
+                        {!session.isActive && isActionMenuOpen ? (
+                          <div
+                            ref={actionMenuRef}
+                            className="session-action-popover"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="session-action-button"
+                              onClick={() => {
+                                setLastViewedRunId(session.runId);
+                                setActionMenuRunId(null);
+                                router.push(`/runs/${session.runId}`);
+                              }}
+                            >
+                              Open report
+                            </button>
+                            <button
+                              type="button"
+                              className="session-action-button session-action-danger"
+                              onClick={() => void handleDeleteFinishedSession(session.runId)}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </article>
                     );
                   })}
                 </div>

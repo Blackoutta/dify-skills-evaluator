@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
 
-import type { EvaluationRunResult, NormalizedBody } from "@/src/server/types/contracts";
+import type {
+  EvaluationRunResult,
+  NormalizedBody,
+  TokenBudget,
+} from "@/src/server/types/contracts";
+import { TimestampText } from "@/app/components/timestamp-text";
 
 function Section({
   title,
@@ -57,10 +62,6 @@ function summarizeTopFinding(result: EvaluationRunResult): string {
 
   const topFinding = result.score.findings[0];
   return summarizeFinding(topFinding.message);
-}
-
-function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
 }
 
 function renderSeverityLabel(severity: string): string {
@@ -145,6 +146,7 @@ function MetricSummary({
   maxContribution,
   lostContribution,
   relatedFindings,
+  detailRows,
 }: {
   label: string;
   description: string;
@@ -154,6 +156,7 @@ function MetricSummary({
   maxContribution: number;
   lostContribution: number;
   relatedFindings: EvaluationRunResult["score"]["findings"];
+  detailRows?: Array<{ label: string; value: ReactNode }>;
 }) {
   return (
     <details className="disclosure metric-card">
@@ -187,6 +190,9 @@ function MetricSummary({
             label="Points lost"
             value={`${formatWeightedPoints(lostContribution)} points`}
           />
+          {detailRows?.map((row) => (
+            <InfoRow key={row.label} label={row.label} value={row.value} />
+          ))}
         </div>
         {relatedFindings.length > 0 ? (
           <>
@@ -251,7 +257,13 @@ function TraceDisclosure({
   );
 }
 
-export function RunResultView({ result }: { result: EvaluationRunResult }) {
+export function RunResultView({
+  result,
+  tokenBudget,
+}: {
+  result: EvaluationRunResult;
+  tokenBudget?: TokenBudget;
+}) {
   const weights = buildScoreWeights(result);
   const metrics = [
     {
@@ -359,7 +371,7 @@ export function RunResultView({ result }: { result: EvaluationRunResult }) {
           <InfoRow label="Run ID" value={<Link href={`/runs/${result.runId}`}>{result.runId}</Link>} />
           <InfoRow label="Status" value={result.status} />
           <InfoRow label="Case" value={result.testCaseId} />
-          <InfoRow label="Created" value={formatTimestamp(result.createdAt)} />
+          <InfoRow label="Created" value={<TimestampText value={result.createdAt} />} />
           <InfoRow
             label="Token usage"
             value={
@@ -410,6 +422,24 @@ export function RunResultView({ result }: { result: EvaluationRunResult }) {
               maxContribution={metric.maxContribution}
               lostContribution={metric.lostContribution}
               relatedFindings={metric.relatedFindings}
+              detailRows={
+                metric.key === "tokenEfficiencyScore" && tokenBudget
+                  ? [
+                      {
+                        label: "Actual used tokens",
+                        value: result.runner.usage?.totalTokens?.toLocaleString() ?? "Unknown",
+                      },
+                      {
+                        label: "Target tokens",
+                        value: tokenBudget.targetTotalTokens.toLocaleString(),
+                      },
+                      {
+                        label: "Max tokens",
+                        value: (tokenBudget.maxTotalTokens ?? tokenBudget.targetTotalTokens * 2).toLocaleString(),
+                      },
+                    ]
+                  : undefined
+              }
             />
           ))}
         </div>
